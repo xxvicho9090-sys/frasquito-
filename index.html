@@ -87,6 +87,20 @@
   .btn.sm { padding:9px 16px; margin:0; font-size:.9rem; }
   .link { display:inline-block; margin-top:14px; color:var(--soft); font-size:.85rem; text-decoration:none; font-weight:600;
           background:#ffffffaa; padding:8px 14px; border-radius:99px; }
+  .animo { animation:fadeUp .6s ease; }
+  .animo h2 { font-family:"Caveat", cursive; font-size:2rem; margin:8px 0 14px; }
+  .moods { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  .mood { border:none; border-radius:20px; padding:18px 10px; font-family:inherit; font-weight:800; font-size:1rem;
+          color:var(--ink); cursor:pointer; display:flex; flex-direction:column; align-items:center; gap:6px;
+          box-shadow:0 6px 18px #0000000f; transition:transform .15s, box-shadow .15s; }
+  .mood span { font-size:2rem; }
+  .mood:hover { transform:translateY(-3px); box-shadow:0 10px 22px #00000018; }
+  .m-bueno { background:#ffd6e0; } .m-piola { background:#fff0c2; }
+  .m-gris { background:#dbe4ee; } .m-dificil { background:#e6def5; }
+  .gracias { color:var(--soft); font-size:.95rem; margin:4px 0 6px; min-height:1.2em; }
+  .cambiar { background:none; border:none; color:var(--soft); font-family:inherit; font-size:.8rem;
+             text-decoration:underline; cursor:pointer; margin-top:10px; }
+  @keyframes fadeUp { from { opacity:0; transform:translateY(14px); } to { opacity:1; transform:none; } }
   .next { margin-top:16px; font-size:.85rem; color:var(--soft); }
 
   .float { position:fixed; bottom:-40px; font-size:1.4rem; animation:up linear forwards; z-index:1; pointer-events:none; }
@@ -100,6 +114,17 @@
 <div class="card">
   <h1>Frasco de Mensajes</h1>
   <p class="sub">Un papelito por día, escrito para ti 💌</p>
+  <div class="animo" id="paso1">
+    <h2>Hola linda, ¿cómo va tu día?</h2>
+    <div class="moods">
+      <button class="mood m-bueno" onclick="elegirAnimo('bueno')"><span>☀️</span>Día bueno</button>
+      <button class="mood m-piola" onclick="elegirAnimo('piola')"><span>😌</span>Día piola</button>
+      <button class="mood m-gris" onclick="elegirAnimo('gris')"><span>🌧️</span>Día gris</button>
+      <button class="mood m-dificil" onclick="elegirAnimo('dificil')"><span>🫂</span>Día muy difícil</button>
+    </div>
+  </div>
+  <div id="paso2" style="display:none">
+  <p class="gracias" id="gracias"></p>
   <div class="progress"><span id="cnt">0 de 0</span><div class="bar"><div id="bar"></div></div></div>
 
   <div class="jar-wrap" id="jarWrap" onclick="abrir()" role="button" aria-label="Abrir el frasco">
@@ -153,7 +178,8 @@
     </div>
   </div>
   <p class="next" id="next"></p>
-  <a class="link" href="termometro.html">🌡️ ¿Cómo va tu día?</a>
+  <button class="cambiar" id="cambiar" onclick="cambiarAnimo()">Cambiar cómo me siento</button>
+  </div>
 </div>
 
 <script>
@@ -329,14 +355,60 @@ function actualizarProgreso() {
   document.getElementById("bar").style.width = (n / total * 100) + "%";
 }
 
-// Qué categorías tocan hoy según su ánimo (termómetro) y la hora
-function categoriasDeHoy() {
+// Qué categorías tocan según el ánimo que eligió y la hora
+function moodDeHoy() {
   const animo = leer("animo-hoy", null);
-  const mood = animo && animo.fecha === HOY ? animo.mood : null;
+  return animo && animo.fecha === HOY ? animo.mood : null;
+}
+function categoriasDeHoy() {
+  const mood = moodDeHoy();
   if (mood === "dificil") return ["compania"];
   if (mood === "gris") return ["compania", "cuidados", "carino"];
-  if (HORA >= 22 || HORA < 5) return ["noche", "compania", "carino"];
+  if (HORA >= 22 || HORA < 5) return ["noche", "carino", "compania"];
+  if (mood === "bueno") return ["carino", "tallas", "preguntas"];
+  if (mood === "piola") return ["carino", "tallas", "preguntas", "cuidados"];
   return ["compania", "carino", "tallas", "preguntas", "cuidados"];
+}
+
+// --- Paso 1: cómo se siente ---
+const GRACIAS = {
+  bueno: "¡Qué bueno! ☀️ Abre el frasco, hay algo para ti",
+  piola: "Día piola, buen día 😌 Abre el frasco",
+  gris: "Gracias por contarme 💛 Abre el frasco, esto es para ti",
+  dificil: "Gracias por decírmelo. No estás sola 💜 Ya me llegó el aviso",
+};
+const AVISOS = {
+  bueno: "Hoy tiene un día bueno ☀️",
+  piola: "Hoy tiene un día piola 😌",
+  gris: "Hoy tiene un día gris 🌧️",
+  dificil: "Hoy tiene un día muy difícil 🫂 Escríbele",
+};
+function mostrarPaso2() {
+  document.getElementById("paso1").style.display = "none";
+  document.getElementById("paso2").style.display = "block";
+  document.getElementById("gracias").textContent = GRACIAS[moodDeHoy()] || "";
+  // si ya sacó el papelito de hoy, no puede cambiar el ánimo para sacar otro
+  document.getElementById("cambiar").style.display = (deHoy && deHoy.fecha === HOY) ? "none" : "inline";
+}
+function elegirAnimo(m) {
+  const antes = moodDeHoy();
+  escribir("animo-hoy", { fecha: HOY, mood: m });
+  if (antes !== m) {
+    const dificil = m === "dificil";
+    fetch("https://ntfy.sh/" + CANAL, {
+      method: "POST", body: AVISOS[m],
+      headers: {
+        "Title": dificil ? "Dia muy dificil - escribele ahora" : "Estado de animo",
+        "Tags": dificil ? "rotating_light" : "thermometer",
+        "Priority": dificil ? "5" : "3"
+      }
+    }).catch(() => {});
+  }
+  mostrarPaso2();
+}
+function cambiarAnimo() {
+  document.getElementById("paso2").style.display = "none";
+  document.getElementById("paso1").style.display = "block";
 }
 
 function elegir() {
@@ -373,6 +445,7 @@ for (let k = 0; k < 14; k++) {
 llenar();
 if (deHoy && deHoy.fecha === HOY) document.getElementById("hint").innerHTML = "Ya sacaste el de hoy. Tócalo para <b>volver a leerlo</b>";
 const listo = cargarPlanilla().then(llenar);
+if (moodDeHoy()) mostrarPaso2();
 
 let abierto = false, actual = null;
 async function abrir() {
@@ -392,6 +465,7 @@ async function abrir() {
   setTimeout(() => {
     document.getElementById("jarWrap").style.display = "none";
     document.getElementById("hint").style.display = "none";
+    document.getElementById("cambiar").style.display = "none";
     mostrar(texto, repetido);
     cuentaRegresiva();
   }, 700);
