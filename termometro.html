@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Termómetro del Ánimo</title>
+<style>
+  :root { --bg1:#ffe6ef; --bg2:#e8e4ff; --card:#ffffffcc; --ink:#3a2a40; }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body {
+    min-height:100vh; display:flex; align-items:center; justify-content:center;
+    font-family:"Segoe UI", system-ui, sans-serif; color:var(--ink);
+    background:linear-gradient(135deg,var(--bg1),var(--bg2));
+    transition:background .8s; padding:16px; overflow-x:hidden;
+  }
+  body.bueno { background:linear-gradient(135deg,#ffd1dc,#ff8fab); }
+  body.piola { background:linear-gradient(135deg,#fff3c4,#b8f2e6); }
+  body.gris  { background:linear-gradient(135deg,#cfd8e3,#9fb3c8); }
+  body.dificil { background:linear-gradient(135deg,#d9d4e7,#b8b0d0); }
+  .card {
+    background:var(--card); backdrop-filter:blur(8px); border-radius:28px;
+    padding:32px 24px; max-width:440px; width:100%; text-align:center;
+    box-shadow:0 20px 50px #0002; position:relative; z-index:2;
+  }
+  h1 { font-size:1.6rem; margin-bottom:6px; }
+  .sub { opacity:.7; margin-bottom:24px; }
+  .thermo { display:flex; flex-direction:column; gap:12px; }
+  button.mood {
+    border:none; border-radius:18px; padding:16px; font-size:1.1rem; font-weight:600;
+    cursor:pointer; display:flex; align-items:center; gap:12px; justify-content:center;
+    transition:transform .15s, box-shadow .15s; color:#3a2a40;
+  }
+  button.mood:hover { transform:translateY(-3px) scale(1.02); box-shadow:0 8px 20px #0002; }
+  button.mood span { font-size:1.8rem; }
+  .b-bueno { background:#ff8fab; }
+  .b-piola { background:#ffd97d; }
+  .b-gris  { background:#a8b8cc; }
+  .b-dificil { background:#b8aed6; }
+  #msg { display:none; animation:pop .5s ease; }
+  #msg .emoji { font-size:3.5rem; margin-bottom:10px; }
+  #msg p { font-size:1.2rem; line-height:1.5; margin-bottom:22px; }
+  .row { display:flex; gap:10px; justify-content:center; flex-wrap:wrap; }
+  .small { border:none; border-radius:14px; padding:10px 16px; cursor:pointer; font-weight:600; background:#3a2a40; color:#fff; }
+  .small.alt { background:#fff; color:#3a2a40; }
+  @keyframes pop { from { transform:scale(.8); opacity:0; } to { transform:scale(1); opacity:1; } }
+  .float { position:fixed; bottom:-40px; font-size:1.6rem; animation:up linear forwards; z-index:1; pointer-events:none; }
+  @keyframes up { to { transform:translateY(-115vh) rotate(25deg); opacity:0; } }
+</style>
+</head>
+<body>
+<div class="card">
+  <div id="pick">
+    <h1>Termómetro del Ánimo 🌡️</h1>
+    <p class="sub">Hola <b id="nombre"></b>, ¿cómo va el día?</p>
+    <div class="thermo">
+      <button class="mood b-bueno" onclick="elegir('bueno')"><span>☀️</span> Día bueno</button>
+      <button class="mood b-piola" onclick="elegir('piola')"><span>😌</span> Día piola</button>
+      <button class="mood b-gris"  onclick="elegir('gris')"><span>🌧️</span> Día gris</button>
+      <button class="mood b-dificil" onclick="elegir('dificil')"><span>🫂</span> Día muy difícil</button>
+    </div>
+    <p style="margin-top:18px"><a href="index.html" style="color:#3a2a40;opacity:.7;font-size:.9rem">🫙 Ir al frasco de mensajes</a></p>
+  </div>
+  <div id="msg">
+    <div class="emoji" id="emoji"></div>
+    <p id="texto"></p>
+    <div class="row">
+      <button class="small" onclick="otro()">Otro mensaje</button>
+      <button class="small alt" onclick="volver()">Volver</button>
+      <a class="small" style="text-decoration:none;background:#e8798f" href="index.html">🫙 Ir al frasco</a>
+    </div>
+  </div>
+</div>
+
+<script>
+// ✏️ PERSONALIZA AQUÍ: su nombre y tus mensajes
+const NOMBRE = "linda";
+// Canal privado de notificaciones (app ntfy). No lo compartas.
+const CANAL = "animo-644cea567218";
+
+const MENSAJES = {
+  bueno: { // coqueteo suave
+    emoji: "😊", lluvia: ["☀️","✨","😊","🌼"],
+    lista: [
+      "¡Qué bueno! Me alegra harto saber que andas bien 😊",
+      "Día bueno se nota... hasta por mensaje se te nota la buena vibra ✨",
+      "Aprovecha ese día, te lo mereces. Después me cuentas qué tal 😉",
+      "Con razón hoy me llegó buena energía, era tuya ☀️",
+      "Me gusta cuando andas así de contenta. Que siga así 🙌",
+      "Oficialmente estás más linda que ayer. Y ayer ya era harto.",
+      "Aprovecha esa energía y regálame una sonrisa, que me la debes 💋",
+    ]
+  },
+  piola: {
+    emoji: "🤙", lluvia: ["🌼","☕","🍃"],
+    lista: [
+      "Día piola también es buen día. Tómate un tecito y relájate ☕",
+      "Tranqui nomás, no todos los días tienen que ser épicos 😌",
+      "Piola pero con estilo. Si te aburres, ya sabes dónde encontrarme 😉",
+      "Si quieres subirlo a 'día bueno', escríbeme y vemos qué hacemos 🤙",
+    ]
+  },
+  gris: { // apoyo + tallas
+    emoji: "💛", lluvia: ["💛","🌈","🐶","☁️"],
+    lista: [
+      "Los días grises también pasan. Si quieres conversar, aquí estoy 💛",
+      "¿Sabes por qué el libro de matemáticas está triste? Porque tiene muchos problemas... tú no, tú me tienes a mí 😅",
+      "Si alguien te arruinó el día, dame su dirección y le mando 40 perros salchicha 🐶",
+      "Eres más fuerte que este día fome. Mañana va a estar mejor 🌈",
+      "¿Qué le dijo una uva verde a una morada? ¡Respira, respira! 🍇 ...ya, ahora tú respira también.",
+      "No tienes que estar bien todo el tiempo. Descansa, date un gusto y mañana seguimos 💛",
+    ]
+  },
+  dificil: { // contención, sin tallas
+    emoji: "🫂", lluvia: ["💜","🫂","🕯️"],
+    lista: [
+      "Gracias por decírmelo. Ya me llegó el aviso y te voy a escribir. No estás sola 💜",
+      "No tienes que explicar nada. Solo quiero que sepas que estoy aquí contigo.",
+      "Hoy no hay que hacer nada más que pasar el día. Y lo vamos a pasar juntos, aunque sea por mensaje.",
+      "Lo que sientes es real y tiene sentido. No es tu culpa 💜",
+      "Respira conmigo: inhala 4 segundos, aguanta 4, bota 4. Otra vez. Aquí estoy.",
+    ]
+  }
+};
+
+let actual = null, ultimo = -1;
+document.getElementById("nombre").textContent = NOMBRE;
+
+function elegir(m) {
+  actual = m;
+  try { localStorage.setItem("animo-hoy", JSON.stringify({ fecha: new Date().toLocaleDateString("en-CA"), mood: m })); } catch {}
+  document.body.className = m;
+  document.getElementById("pick").style.display = "none";
+  document.getElementById("msg").style.display = "block";
+  otro();
+  avisar();
+}
+function otro() {
+  const d = MENSAJES[actual];
+  let i; do { i = Math.floor(Math.random() * d.lista.length); } while (i === ultimo && d.lista.length > 1);
+  ultimo = i;
+  document.getElementById("emoji").textContent = d.emoji;
+  const t = document.getElementById("texto");
+  t.textContent = d.lista[i];
+  const box = document.getElementById("msg");
+  box.style.animation = "none"; box.offsetHeight; box.style.animation = "";
+  llover(d.lluvia);
+}
+const AVISOS = {
+  bueno: "Hoy tengo un día bueno ☀️",
+  piola: "Hoy tengo un día piola 😌",
+  gris:  "Hoy tengo un día gris 🌧️",
+  dificil: "Hoy tengo un día muy difícil 🫂 escríbele",
+};
+function avisar() {
+  fetch("https://ntfy.sh/" + CANAL, {
+    method: "POST",
+    body: "Ella dice: " + AVISOS[actual],
+    headers: {
+      "Title": actual === "dificil" ? "Dia muy dificil - escribele ahora" : "Termometro del Animo",
+      "Tags": actual === "dificil" ? "rotating_light" : "thermometer",
+      "Priority": actual === "dificil" ? "5" : "3"
+    }
+  }).catch(() => {});
+}
+function volver() {
+  document.body.className = "";
+  document.getElementById("msg").style.display = "none";
+  document.getElementById("pick").style.display = "block";
+}
+function llover(emojis) {
+  for (let k = 0; k < 18; k++) {
+    const e = document.createElement("div");
+    e.className = "float";
+    e.textContent = emojis[k % emojis.length];
+    e.style.left = Math.random() * 100 + "vw";
+    e.style.animationDuration = 3 + Math.random() * 3 + "s";
+    e.style.animationDelay = Math.random() * 1.5 + "s";
+    document.body.appendChild(e);
+    setTimeout(() => e.remove(), 7000);
+  }
+}
+</script>
+</body>
+</html>

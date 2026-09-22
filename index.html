@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Frasco de Mensajes</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;700&family=Nunito:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink:#3b2f4a; --soft:#7a6b8a; --accent:#e8798f; --paper:#fffaf0; --line:#efe2cc;
+  }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body {
+    min-height:100vh; display:flex; align-items:center; justify-content:center;
+    font-family:"Nunito", system-ui, sans-serif; color:var(--ink); padding:24px 16px;
+    background:
+      radial-gradient(circle at 20% 15%, #ffd9e4 0, transparent 40%),
+      radial-gradient(circle at 85% 80%, #d9e8ff 0, transparent 45%),
+      radial-gradient(circle at 80% 10%, #fff1c9 0, transparent 35%),
+      #fbf4f7;
+    overflow-x:hidden;
+  }
+  .card { max-width:420px; width:100%; text-align:center; position:relative; z-index:2; }
+  h1 { font-family:"Caveat", cursive; font-size:2.6rem; font-weight:700; line-height:1; }
+  .sub { color:var(--soft); margin:6px 0 10px; font-size:.95rem; }
+  .progress { display:inline-flex; align-items:center; gap:8px; background:#ffffffaa; border-radius:99px;
+              padding:6px 14px; font-size:.8rem; font-weight:600; color:var(--soft); margin-bottom:10px;
+              box-shadow:0 2px 10px #0000000d; }
+  .progress .bar { width:90px; height:6px; background:#f0e4ea; border-radius:6px; overflow:hidden; }
+  .progress .bar div { height:100%; background:linear-gradient(90deg,#f7a1b5,#b9a2f0); width:0; transition:width .6s; }
+
+  /* Frasco SVG */
+  .jar-wrap { width:230px; margin:0 auto; cursor:pointer; position:relative; -webkit-tap-highlight-color:transparent; }
+  .jar-wrap svg { width:100%; height:auto; display:block; overflow:visible; }
+  .jar-wrap:hover #jarBody, .jar-wrap:active #jarBody { animation:wiggle .6s ease; transform-origin:115px 290px; }
+  @keyframes wiggle { 20%{transform:rotate(-4deg)} 50%{transform:rotate(3deg)} 80%{transform:rotate(-2deg)} }
+  #lid { transition:transform .8s cubic-bezier(.4,-0.5,.4,1.5); transform-origin:115px 40px; }
+  #lid.open { transform:translate(120px,-70px) rotate(40deg); }
+  .glow { position:absolute; inset:30% 15% 5%; background:radial-gradient(#fff6c6aa, transparent 70%);
+          filter:blur(10px); z-index:-1; animation:breathe 3s ease-in-out infinite; }
+  @keyframes breathe { 50% { opacity:.4; transform:scale(.92); } }
+  .hint { color:var(--soft); font-size:.95rem; margin-top:10px; }
+  .hint b { color:var(--accent); }
+
+  /* Nota */
+  .note-wrap { display:none; perspective:900px; margin-top:8px; }
+  .note {
+    background:var(--paper); border-radius:4px; padding:34px 26px 22px; position:relative; text-align:left;
+    background-image:repeating-linear-gradient(transparent 0 33px, var(--line) 33px 34px);
+    background-position:0 22px;
+    box-shadow:0 1px 0 #e9dcc4, 0 18px 40px #3b2f4a26;
+    transform-origin:top center; animation:unfold .9s cubic-bezier(.2,.8,.2,1);
+  }
+  .note::before { /* cinta */
+    content:""; position:absolute; top:-12px; left:50%; width:100px; height:26px;
+    transform:translateX(-50%) rotate(-2deg); background:#f6c1cdb3; border-radius:2px;
+  }
+  .note::after { /* margen rojo */
+    content:""; position:absolute; top:0; bottom:0; left:18px; width:1px; background:#f3b6c1;
+  }
+  .note .num { font-size:.72rem; letter-spacing:3px; color:#b3a3b8; font-weight:800; margin-bottom:6px; }
+  .note p { font-family:"Caveat", cursive; font-size:1.75rem; line-height:34px; font-weight:500; min-height:68px; }
+  .note .firma { font-family:"Caveat", cursive; text-align:right; font-size:1.4rem; color:var(--accent); margin-top:8px; }
+  @keyframes unfold {
+    0% { transform:rotateX(-90deg) translateY(-60px) scale(.6); opacity:0; }
+    60% { transform:rotateX(12deg); opacity:1; }
+    100% { transform:none; }
+  }
+  .repe { display:none; margin-top:14px; background:#fff; border-radius:16px; padding:12px 14px;
+          font-size:.9rem; box-shadow:0 4px 14px #0000000f; }
+  .btn { border:none; border-radius:14px; padding:12px 20px; font-family:inherit; font-weight:800; font-size:.95rem;
+         cursor:pointer; background:var(--accent); color:#fff; margin-top:10px; transition:transform .15s;
+         box-shadow:0 6px 16px #e8798f55; }
+  .btn:hover { transform:translateY(-2px); }
+  .resp { margin-top:14px; background:#fff; border-radius:18px; padding:14px; box-shadow:0 4px 14px #0000000f; text-align:left; }
+  .resp .top { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:8px; }
+  .resp .top span { font-size:.9rem; font-weight:700; }
+  .heart { border:2px solid #f6c1cd; background:#fff; border-radius:99px; padding:6px 14px; font-family:inherit;
+           font-weight:800; cursor:pointer; color:var(--accent); transition:all .2s; }
+  .heart.on { background:var(--accent); color:#fff; border-color:var(--accent); transform:scale(1.05); }
+  textarea { width:100%; border:2px solid #f0e4ea; border-radius:12px; padding:10px; font-family:inherit; font-size:.95rem;
+             resize:none; height:70px; color:var(--ink); background:#fffdfd; }
+  textarea:focus { outline:none; border-color:#f6c1cd; }
+  .send { display:flex; justify-content:space-between; align-items:center; margin-top:8px; }
+  .send small { color:var(--soft); }
+  .btn.sm { padding:9px 16px; margin:0; font-size:.9rem; }
+  .link { display:inline-block; margin-top:14px; color:var(--soft); font-size:.85rem; text-decoration:none; font-weight:600;
+          background:#ffffffaa; padding:8px 14px; border-radius:99px; }
+  .next { margin-top:16px; font-size:.85rem; color:var(--soft); }
+
+  .float { position:fixed; bottom:-40px; font-size:1.4rem; animation:up linear forwards; z-index:1; pointer-events:none; }
+  @keyframes up { to { transform:translateY(-115vh) rotate(30deg); opacity:0; } }
+  .spark { position:fixed; width:6px; height:6px; border-radius:50%; background:#ffe08a; pointer-events:none;
+           animation:spark 3s ease-in-out infinite; opacity:.7; z-index:0; }
+  @keyframes spark { 50% { opacity:0; transform:scale(.3); } }
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>Frasco de Mensajes</h1>
+  <p class="sub">Un papelito por día, escrito para ti 💌</p>
+  <div class="progress"><span id="cnt">0 de 0</span><div class="bar"><div id="bar"></div></div></div>
+
+  <div class="jar-wrap" id="jarWrap" onclick="abrir()" role="button" aria-label="Abrir el frasco">
+    <div class="glow"></div>
+    <svg viewBox="0 0 230 300" aria-hidden="true">
+      <defs>
+        <linearGradient id="glass" x1="0" x2="1">
+          <stop offset="0" stop-color="#ffffff" stop-opacity=".55"/>
+          <stop offset=".25" stop-color="#ffffff" stop-opacity=".15"/>
+          <stop offset=".75" stop-color="#ffffff" stop-opacity=".08"/>
+          <stop offset="1" stop-color="#ffffff" stop-opacity=".45"/>
+        </linearGradient>
+        <linearGradient id="cork" x1="0" x2="0" y1="0" y2="1">
+          <stop offset="0" stop-color="#e2b584"/><stop offset="1" stop-color="#b98555"/>
+        </linearGradient>
+        <clipPath id="inside"><path d="M52 78 Q40 90 38 120 L38 250 Q38 285 75 285 L155 285 Q192 285 192 250 L192 120 Q190 90 178 78 Z"/></clipPath>
+      </defs>
+      <g id="jarBody">
+        <ellipse cx="115" cy="290" rx="80" ry="7" fill="#3b2f4a" opacity=".08"/>
+        <g clip-path="url(#inside)" id="papers"></g>
+        <path d="M52 78 Q40 90 38 120 L38 250 Q38 285 75 285 L155 285 Q192 285 192 250 L192 120 Q190 90 178 78 Z"
+              fill="url(#glass)" stroke="#ffffff" stroke-width="3" stroke-opacity=".9"/>
+        <path d="M52 110 Q50 170 54 240" stroke="#fff" stroke-width="6" stroke-linecap="round" opacity=".7" fill="none"/>
+        <path d="M172 130 Q175 160 172 190" stroke="#fff" stroke-width="3" stroke-linecap="round" opacity=".5" fill="none"/>
+        <rect x="56" y="62" width="118" height="20" rx="6" fill="#ffffff" opacity=".55" stroke="#fff"/>
+        <!-- etiqueta -->
+        <g transform="rotate(-4 115 190)">
+          <rect x="70" y="170" width="90" height="40" rx="6" fill="#fffaf0" stroke="#e8798f" stroke-width="1.5" stroke-dasharray="4 3"/>
+          <text x="115" y="196" text-anchor="middle" font-family="Caveat" font-size="22" fill="#e8798f">para ti</text>
+        </g>
+      </g>
+      <g id="lid">
+        <rect x="62" y="28" width="106" height="38" rx="8" fill="url(#cork)"/>
+        <g fill="#9c6b3f" opacity=".45"><circle cx="80" cy="40" r="2"/><circle cx="100" cy="52" r="1.6"/><circle cx="130" cy="38" r="2"/><circle cx="150" cy="55" r="1.8"/><circle cx="118" cy="47" r="1.4"/></g>
+        <path d="M60 58 Q115 70 170 58" stroke="#e8798f" stroke-width="4" fill="none"/>
+        <path d="M115 64 q-18 -14 -22 4 q10 4 22 -4 q18 -14 22 4 q-10 4 -22 -4" fill="#f29bb0"/>
+      </g>
+    </svg>
+  </div>
+  <p class="hint" id="hint">Toca el frasco para sacar <b>el mensaje de hoy</b></p>
+
+  <div class="note-wrap" id="noteWrap">
+    <div class="note">
+      <div class="num" id="num"></div>
+      <p id="texto"></p>
+      <div class="firma">— yo ✨</div>
+    </div>
+    <div class="repe" id="repe">
+      <span id="repeTxt">¿Este ya te había salido? 🙈</span>
+      <br><button class="btn" id="otroBtn" onclick="sacarOtro()">Sacar otro papelito</button>
+    </div>
+  </div>
+  <div class="resp" id="resp" style="display:none">
+    <div class="top"><span>¿Qué te pareció?</span><button class="heart" id="heart" onclick="meGusto()">💛 Me gustó</button></div>
+    <textarea id="respuesta" maxlength="500" placeholder="Si quieres, respóndeme algo aquí..."></textarea>
+    <div class="send"><small id="sendMsg">Me llega solo a mí 🤫</small><button class="btn sm" onclick="responder()">Enviar</button></div>
+  </div>
+  <p class="next" id="next"></p>
+  <a class="link" href="termometro.html">🌡️ ¿Cómo va tu día?</a>
+</div>
+
+<script>
+// ✏️ PERSONALIZA AQUÍ
+// Canal ntfy: te avisa cuando abre el frasco y te llegan sus respuestas
+const CANAL = "animo-644cea567218";
+// Link CSV de tu Google Sheet publicada (columnas: mensaje | categoria | fecha). Vacío = sin planilla.
+const PLANILLA = "";
+
+// Fechas especiales: "MM-DD" (todos los años) o "AAAA-MM-DD" → mensaje que sale ese día sí o sí
+const ESPECIALES = {
+  // "03-15": "¡Feliz cumpleaños! 🎂 Hoy el frasco es todo tuyo.",
+};
+
+const MENSAJES = {
+  compania: [
+    "No tienes que estar bien hoy. Estoy aquí igual 💛",
+    "Un día a la vez. Y si un día es mucho, una hora a la vez.",
+    "Si hoy solo lograste levantarte, eso ya cuenta. En serio que cuenta.",
+    "No eres una carga. Nunca lo has sido.",
+    "Está bien no tener ganas de hablar. Yo sigo aquí cuando quieras.",
+    "Gracias por dejarme estar cerca 💛",
+    "Si hoy está difícil, acuérdate de que tú me tienes a mí 💛",
+    "Estoy orgulloso de ti por seguir, aunque tú no lo veas.",
+    "Los días grises no duran para siempre, aunque a veces se sienta así 🌈",
+    "Eres más fuerte de lo que crees. Y más bonita de lo que te dices.",
+    "Lo que sientes es válido. No tienes que justificarlo.",
+    "Descansar también es avanzar.",
+    "Si hoy lloraste, está bien. Llorar también limpia.",
+    "No tienes que poder con todo. Nadie puede.",
+    "Tu valor no depende de lo productiva que seas hoy.",
+    "Hoy te toca ser amable contigo. Como lo eres con los demás.",
+    "Si pudieras verte como yo te veo, te caerías harto mejor 😌",
+    "No estás sola en esto. Ni hoy ni mañana.",
+    "Un paso chiquitito sigue siendo un paso.",
+    "Está bien pedir ayuda. Es de valientes, no de débiles.",
+    "Mañana es otra oportunidad. Y si no, pasado. No hay apuro.",
+    "Aunque no lo sientas, estás haciendo lo mejor que puedes. Y eso basta.",
+    "Me alegra que existas. Así, simple.",
+    "Hay gente que te quiere más de lo que imaginas. Yo me anoto en la lista.",
+    "Si la cabeza está ruidosa, pon música y deja que ella hable un rato 🎧",
+    "Respira conmigo: inhala 4, aguanta 4, bota 4. Otra vez. Aquí estoy.",
+    "Eres suficiente. Hoy, tal como estás.",
+    "Las tormentas también se cansan 🌧️➡️🌤️",
+    "Que un día sea malo no significa que tú lo seas.",
+    "Guarda este papelito para cuando dudes de ti: vales mucho.",
+  ],
+  carino: [
+    "Hoy solo quería decirte que me cae muy bien hablar contigo.",
+    "Dato random: sonreí leyendo tu último mensaje. Ahora ya sabes 🙈",
+    "Oficialmente estás más linda que ayer. Y ayer ya era harto.",
+    "Me debes una sonrisa. Pero tranqui, no tiene fecha de vencimiento 😌",
+    "No sé cómo lo haces, pero las conversas contigo se me pasan volando.",
+    "Me gusta que me cuentes tus cosas. Las buenas y las no tan buenas.",
+    "Me caes muy bien. Ya, lo dije.",
+    "Tienes una risa que se nota hasta por mensaje. Ojalá la escuche harto.",
+    "Gracias por las conversas hasta tarde. Valen cada minuto de sueño perdido 🌙",
+    "Algún día vamos a ir por ese café. Sin apuro, cuando tú quieras ☕",
+    "Te dejo un abrazo guardado aquí. Lo puedes cobrar cuando quieras 🤗",
+    "Una cosa buena de hoy: existes. Ya con eso el día va ganando.",
+    "Esos rulos deberían tener su propio club de fans. Yo sería el presidente 🌀",
+    "Cuando me llega un mensaje tuyo, el día mejora al tiro.",
+    "Me gusta cómo piensas. Y cómo lo cuentas.",
+    "Eres de esas personas que hacen fácil conversar.",
+    "Me alegra harto haberte conocido.",
+    "Tienes algo que no sé explicar, pero me cae muy bien.",
+    "Si te vieras sonreír, entenderías por qué insisto con eso 😊",
+    "Hoy pensé en ti. Y sonreí. Fin del mensaje 🙈",
+    "Tu forma de ser es bonita. No la cambies por nadie.",
+    "Contigo las conversas nunca son fomes.",
+    "Tengo la teoría de que el día es mejor si hablamos. La sigo comprobando.",
+    "Me gusta cuando me cuentas algo y te emocionas.",
+    "Eres bonita por dentro y por fuera. Sí, por las dos.",
+  ],
+  tallas: [
+    "¿Sabías que un pulpo tiene tres corazones? Yo con uno ya ando harto distraído 🐙",
+    "Si el día está gris, imagínate 40 perros salchicha corriendo hacia ti 🐶",
+    "¿Qué le dijo una uva verde a una morada? ¡Respira, respira! 🍇",
+    "¿Por qué el libro de matemáticas está triste? Porque tiene muchos problemas. Tú no, tú me tienes a mí 😅",
+    "¿Qué hace una abeja en el gimnasio? ¡Zumba! 🐝 (perdón)",
+    "Dato: las nutrias se toman de la mano para dormir y no separarse 🦦",
+    "¿Cómo se despiden los químicos? Ácido un placer 🧪",
+    "Los pingüinos le regalan una piedrita a quien les gusta. Toma: 🪨",
+    "¿Qué le dijo el 0 al 8? Bonito cinturón 😎",
+    "¿Qué le dijo una impresora a otra? ¿Esa hoja es tuya o es impresión mía? 🖨️",
+    "Las vacas tienen mejores amigas y se estresan si las separan. Somos vacas 🐄",
+    "¿Qué le dijo el café al azúcar? Sin ti mi vida es amarga ☕",
+    "¿Cuál es el colmo de un jardinero? Que su novia se llame Rosa y lo deje plantado 🌹",
+    "Los gatos pasan el 70% de su vida durmiendo. Hoy tienes permiso para ser gato 🐈",
+    "¿Qué le dijo un semáforo a otro? No me mires que me estoy cambiando 🚦",
+  ],
+  preguntas: [
+    "Pregunta seria: ¿té o café? Necesito saberlo para una investigación ☕",
+    "Si pudieras viajar mañana a cualquier parte, ¿a dónde irías? Cuéntame 👀",
+    "¿Cuál es la canción que te levanta el ánimo? Mándamela 🎶",
+    "¿Qué comida te hace feliz sí o sí?",
+    "Si tuvieras un superpoder por un día, ¿cuál sería?",
+    "¿Cuál es tu recuerdo favorito de cuando eras chica?",
+    "¿Playa o cordillera? Respuesta obligatoria 🏔️🏖️",
+    "¿Qué película podrías ver mil veces sin aburrirte?",
+    "Si fueras un animal, ¿cuál serías? Yo ya tengo mi apuesta 👀",
+    "¿Cuál es el lugar donde te sientes más tranquila?",
+    "¿Qué es algo chiquito que te alegra el día?",
+  ],
+  cuidados: [
+    "Tómate un vaso de agua. Es en serio, cuídate 💧",
+    "Descansa bien hoy. Las personas lindas también necesitan dormir 😴",
+    "Si puedes, sal cinco minutos a tomar sol. Receta del doctor 😌🌞",
+    "Come algo rico hoy. Te lo mereces 🍫",
+    "Date una ducha calentita y ponte ropa cómoda. Plan aprobado 🛁",
+    "Deja el celular un ratito y estírate. Ya, ahora sí vuelve 😅",
+    "Abre la ventana y respira aire fresco. Pequeño reset 🍃",
+    "Hazte un tecito y tómatelo con calma ☕",
+    "Mándame una foto del cielo de hoy. Quiero ver lo que tú ves ☁️",
+    "Pon tu canción favorita. Aunque sea una. Hazlo por mí 🎶",
+    "Anota una cosa buena que te pasó hoy, por chiquitita que sea ✍️",
+    "Si hoy no te dan ganas de nada, está bien. Mañana lo intentamos de nuevo.",
+  ],
+  noche: [
+    "Ya es tarde. Deja el celular un ratito y descansa, mañana seguimos 🌙",
+    "Que duermas rico. El día de hoy ya terminó, y lo lograste 💛",
+    "Si no puedes dormir, respira lento y piensa en algo bonito. Yo pienso en ti 😌",
+    "Buenas noches. Mañana es otro día, uno nuevo de verdad ✨",
+    "Tápate bien, ponte cómoda y apaga la cabeza. Aquí te cuido desde lejos 🌙",
+    "Noche tranquila, sueños lindos. Nos hablamos mañana 💤",
+  ],
+};
+
+const COLORES = ["#ffc8dd","#bde0fe","#ffe5a3","#caffbf","#e0c3fc","#ffd6a5","#a0e7e5","#fbc4ab"];
+const HOY = new Date().toLocaleDateString("en-CA");
+const HORA = new Date().getHours();
+
+function leer(k, def) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : def; } catch { return def; } }
+function escribir(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} }
+let vistos = leer("frasco-vistos2", []);   // textos ya leídos
+let deHoy  = leer("frasco-hoy2", null);    // { fecha, texto, extra }
+
+// --- Mensajes de la planilla (se suman a los del código) ---
+function parseCSV(txt) {
+  const filas = []; let f = [], c = "", q = false;
+  for (let i = 0; i < txt.length; i++) {
+    const ch = txt[i];
+    if (q) { if (ch === '"' && txt[i + 1] === '"') { c += '"'; i++; } else if (ch === '"') q = false; else c += ch; }
+    else if (ch === '"') q = true;
+    else if (ch === ",") { f.push(c); c = ""; }
+    else if (ch === "\n" || ch === "\r") { if (ch === "\r" && txt[i + 1] === "\n") i++; f.push(c); filas.push(f); f = []; c = ""; }
+    else c += ch;
+  }
+  if (c || f.length) { f.push(c); filas.push(f); }
+  return filas;
+}
+async function cargarPlanilla() {
+  if (!PLANILLA) return;
+  try {
+    const r = await fetch(PLANILLA + (PLANILLA.includes("?") ? "&" : "?") + "t=" + Date.now());
+    const filas = parseCSV(await r.text()).slice(1);
+    for (const [msg, cat, fecha] of filas) {
+      const t = (msg || "").trim(); if (!t) continue;
+      const fe = (fecha || "").trim();
+      if (fe) { ESPECIALES[fe] = t; continue; }
+      const k = (cat || "").trim().toLowerCase();
+      const dest = MENSAJES[k] ? k : "carino";
+      if (!MENSAJES[dest].includes(t)) MENSAJES[dest].push(t);
+    }
+  } catch {}
+}
+
+function todos() { return Object.values(MENSAJES).flat(); }
+function leidos() { return todos().filter(t => vistos.includes(t)).length; }
+function actualizarProgreso() {
+  const total = todos().length, n = leidos();
+  document.getElementById("cnt").textContent = `${n} de ${total} descubiertos`;
+  document.getElementById("bar").style.width = (n / total * 100) + "%";
+}
+
+// Qué categorías tocan hoy según su ánimo (termómetro) y la hora
+function categoriasDeHoy() {
+  const animo = leer("animo-hoy", null);
+  const mood = animo && animo.fecha === HOY ? animo.mood : null;
+  if (mood === "dificil") return ["compania"];
+  if (mood === "gris") return ["compania", "cuidados", "carino"];
+  if (HORA >= 22 || HORA < 5) return ["noche", "compania", "carino"];
+  return ["compania", "carino", "tallas", "preguntas", "cuidados"];
+}
+
+function elegir() {
+  const esp = ESPECIALES[HOY] || ESPECIALES[HOY.slice(5)];
+  if (esp && !vistos.includes(esp + "@" + HOY)) { vistos.push(esp + "@" + HOY); return esp; }
+  const pool = categoriasDeHoy().flatMap(c => MENSAJES[c] || []);
+  let pend = pool.filter(t => !vistos.includes(t));
+  if (!pend.length) pend = todos().filter(t => !vistos.includes(t));
+  if (!pend.length) { vistos = []; pend = pool; }   // se rellena el frasco
+  return pend[Math.floor(Math.random() * pend.length)];
+}
+
+// --- Papelitos y brillitos ---
+function llenar() {
+  const g = document.getElementById("papers"); g.innerHTML = "";
+  const quedan = Math.max(6, Math.round(34 * (1 - leidos() / todos().length)));
+  for (let k = 0; k < quedan; k++) {
+    const x = 48 + Math.random() * 120, y = 272 - Math.floor(k / 5) * 17 - Math.random() * 8;
+    g.insertAdjacentHTML("beforeend",
+      `<g transform="translate(${x} ${y}) rotate(${Math.random() * 70 - 35})">
+         <rect x="-17" y="-7" width="34" height="14" rx="3" fill="${COLORES[k % COLORES.length]}"/>
+         <line x1="-17" y1="0" x2="17" y2="0" stroke="#00000014"/>
+       </g>`);
+  }
+  actualizarProgreso();
+}
+for (let k = 0; k < 14; k++) {
+  const s = document.createElement("div");
+  s.className = "spark";
+  s.style.left = Math.random() * 100 + "vw"; s.style.top = Math.random() * 100 + "vh";
+  s.style.animationDelay = Math.random() * 3 + "s";
+  document.body.appendChild(s);
+}
+llenar();
+if (deHoy && deHoy.fecha === HOY) document.getElementById("hint").innerHTML = "Ya sacaste el de hoy. Tócalo para <b>volver a leerlo</b>";
+const listo = cargarPlanilla().then(llenar);
+
+let abierto = false, actual = null;
+async function abrir() {
+  if (abierto) return; abierto = true;
+  await listo;
+  let texto, repetido = false, nuevo = false;
+  if (deHoy && deHoy.fecha === HOY) {
+    texto = deHoy.texto;
+  } else {
+    texto = elegir();
+    repetido = vistos.includes(texto);
+    deHoy = { fecha: HOY, texto, extra: false };
+    vistos.push(texto); nuevo = true;
+    escribir("frasco-vistos2", vistos); escribir("frasco-hoy2", deHoy);
+  }
+  document.getElementById("lid").classList.add("open");
+  setTimeout(() => {
+    document.getElementById("jarWrap").style.display = "none";
+    document.getElementById("hint").style.display = "none";
+    mostrar(texto, repetido);
+    cuentaRegresiva();
+  }, 700);
+  if (nuevo) avisar("Abrio el frasco", `🫙 Le salió: "${texto}"`);
+}
+
+function mostrar(texto, repetido) {
+  actual = texto;
+  const wrap = document.getElementById("noteWrap");
+  wrap.style.display = "block";
+  const note = wrap.querySelector(".note");
+  note.style.animation = "none"; note.offsetHeight; note.style.animation = "";
+  document.getElementById("num").textContent = "PAPELITO N° " + String(leidos()).padStart(3, "0");
+  document.getElementById("texto").textContent = texto;
+  document.getElementById("repe").style.display = deHoy.extra ? "none" : "block";
+  document.getElementById("repeTxt").textContent = repetido ? "Uy, este ya te había salido 🙈" : "¿Este ya te había salido? 🙈";
+  document.getElementById("resp").style.display = "block";
+  document.getElementById("heart").classList.toggle("on", leer("frasco-likes", []).includes(texto));
+  document.getElementById("sendMsg").textContent = "Me llega solo a mí 🤫";
+  actualizarProgreso();
+  llover(["💌","✨","🌸","💛"]);
+}
+
+// Si sale repetido, puede sacar otro (uno extra por día)
+function sacarOtro() {
+  if (deHoy.extra) return;
+  const texto = elegir();
+  deHoy = { fecha: HOY, texto, extra: true };
+  vistos.push(texto);
+  escribir("frasco-vistos2", vistos); escribir("frasco-hoy2", deHoy);
+  mostrar(texto, false);
+  avisar("Saco otro papelito", `🫙 Le salió: "${texto}"`);
+}
+
+// --- Respuestas de ella ---
+function meGusto() {
+  const likes = leer("frasco-likes", []);
+  if (likes.includes(actual)) return;
+  likes.push(actual); escribir("frasco-likes", likes);
+  document.getElementById("heart").classList.add("on");
+  llover(["💛"]);
+  avisar("Le gusto un papelito", `💛 "${actual}"`);
+}
+function responder() {
+  const ta = document.getElementById("respuesta");
+  const txt = ta.value.trim(); if (!txt) return;
+  avisar("Te respondio", `💌 Sobre: "${actual}"\n\nElla: ${txt}`, "4");
+  ta.value = "";
+  document.getElementById("sendMsg").textContent = "¡Enviado! 💌";
+}
+
+function cuentaRegresiva() {
+  const el = document.getElementById("next");
+  const tick = () => {
+    const man = new Date(); man.setHours(24, 0, 0, 0);
+    const s = Math.floor((man - new Date()) / 1000);
+    el.textContent = `Próximo papelito en ${Math.floor(s / 3600)}h ${Math.floor(s % 3600 / 60)}min ⏳`;
+  };
+  tick(); setInterval(tick, 30000);
+}
+
+function avisar(titulo, cuerpo, prioridad = "3") {
+  fetch("https://ntfy.sh/" + CANAL, {
+    method: "POST", body: cuerpo,
+    headers: { "Title": titulo, "Tags": "love_letter", "Priority": prioridad }
+  }).catch(() => {});
+}
+
+function llover(emojis) {
+  for (let k = 0; k < 18; k++) {
+    const e = document.createElement("div");
+    e.className = "float";
+    e.textContent = emojis[k % emojis.length];
+    e.style.left = Math.random() * 100 + "vw";
+    e.style.animationDuration = 3 + Math.random() * 3 + "s";
+    e.style.animationDelay = Math.random() * 1.2 + "s";
+    document.body.appendChild(e);
+    setTimeout(() => e.remove(), 7000);
+  }
+}
+</script>
+</body>
+</html>
