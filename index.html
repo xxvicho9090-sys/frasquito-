@@ -445,7 +445,6 @@ for (let k = 0; k < 14; k++) {
 llenar();
 if (deHoy && deHoy.fecha === HOY) document.getElementById("hint").innerHTML = "Ya sacaste el de hoy. Tócalo para <b>volver a leerlo</b>";
 const listo = cargarPlanilla().then(llenar);
-if (moodDeHoy()) mostrarPaso2();
 
 let abierto = false, actual = null;
 async function abrir() {
