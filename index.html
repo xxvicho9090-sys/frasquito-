@@ -152,11 +152,6 @@
       <br><button class="btn" id="otroBtn" onclick="sacarOtro()">Sacar otro papelito</button>
     </div>
   </div>
-  <div class="resp" id="resp" style="display:none">
-    <div class="top"><span>¿Qué te pareció?</span><button class="heart" id="heart" onclick="meGusto()">💛 Me gustó</button></div>
-    <textarea id="respuesta" maxlength="500" placeholder="Si quieres, respóndeme algo aquí..."></textarea>
-    <div class="send"><small id="sendMsg">Me llega solo a mí 🤫</small><button class="btn sm" onclick="responder()">Enviar</button></div>
-  </div>
   <p class="next" id="next"></p>
   <a class="link" href="termometro.html">🌡️ ¿Cómo va tu día?</a>
 </div>
@@ -413,9 +408,6 @@ function mostrar(texto, repetido) {
   document.getElementById("texto").textContent = texto;
   document.getElementById("repe").style.display = deHoy.extra ? "none" : "block";
   document.getElementById("repeTxt").textContent = repetido ? "Uy, este ya te había salido 🙈" : "¿Este ya te había salido? 🙈";
-  document.getElementById("resp").style.display = "block";
-  document.getElementById("heart").classList.toggle("on", leer("frasco-likes", []).includes(texto));
-  document.getElementById("sendMsg").textContent = "Me llega solo a mí 🤫";
   actualizarProgreso();
   llover(["💌","✨","🌸","💛"]);
 }
@@ -429,23 +421,6 @@ function sacarOtro() {
   escribir("frasco-vistos2", vistos); escribir("frasco-hoy2", deHoy);
   mostrar(texto, false);
   avisar("Saco otro papelito", `🫙 Le salió: "${texto}"`);
-}
-
-// --- Respuestas de ella ---
-function meGusto() {
-  const likes = leer("frasco-likes", []);
-  if (likes.includes(actual)) return;
-  likes.push(actual); escribir("frasco-likes", likes);
-  document.getElementById("heart").classList.add("on");
-  llover(["💛"]);
-  avisar("Le gusto un papelito", `💛 "${actual}"`);
-}
-function responder() {
-  const ta = document.getElementById("respuesta");
-  const txt = ta.value.trim(); if (!txt) return;
-  avisar("Te respondio", `💌 Sobre: "${actual}"\n\nElla: ${txt}`, "4");
-  ta.value = "";
-  document.getElementById("sendMsg").textContent = "¡Enviado! 💌";
 }
 
 function cuentaRegresiva() {
