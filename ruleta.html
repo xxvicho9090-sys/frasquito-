@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ruleta de Cupones</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;700&family=Nunito:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+  :root { --ink:#3b2f4a; --soft:#7a6b8a; --accent:#e8798f; }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body {
+    min-height:100vh; display:flex; align-items:center; justify-content:center;
+    font-family:"Nunito", system-ui, sans-serif; color:var(--ink); padding:24px 16px;
+    background:
+      radial-gradient(circle at 20% 15%, #ffd9e4 0, transparent 40%),
+      radial-gradient(circle at 85% 80%, #d9e8ff 0, transparent 45%),
+      radial-gradient(circle at 80% 10%, #fff1c9 0, transparent 35%),
+      #fbf4f7;
+    overflow-x:hidden;
+  }
+  .card { max-width:420px; width:100%; text-align:center; position:relative; z-index:2; }
+  h1 { font-family:"Caveat", cursive; font-size:2.6rem; font-weight:700; line-height:1; }
+  .sub { color:var(--soft); margin:6px 0 18px; font-size:.95rem; }
+
+  .wheel-wrap { position:relative; width:min(320px, 86vw); aspect-ratio:1; margin:0 auto; }
+  .pointer {
+    position:absolute; top:-8px; left:50%; transform:translateX(-50%); z-index:3;
+    width:0; height:0; border-left:16px solid transparent; border-right:16px solid transparent;
+    border-top:30px solid var(--accent); filter:drop-shadow(0 3px 3px #0003);
+  }
+  #wheel { width:100%; height:100%; transition:transform 5s cubic-bezier(.15,.85,.2,1); filter:drop-shadow(0 12px 24px #3b2f4a33); }
+  .hub {
+    position:absolute; inset:50% auto auto 50%; width:64px; height:64px; transform:translate(-50%,-50%);
+    border-radius:50%; background:#fff; border:none; box-shadow:0 4px 14px #0003; z-index:2;
+    font-family:inherit; font-weight:800; color:var(--accent); font-size:.9rem; cursor:pointer;
+  }
+  .hub:disabled { color:#c9bfcf; cursor:default; }
+  .hint { color:var(--soft); font-size:.9rem; margin-top:14px; min-height:1.3em; }
+
+  .cupon {
+    display:none; margin-top:20px; padding:22px 18px; border:3px dashed var(--accent); border-radius:20px;
+    background:linear-gradient(135deg,#fff5f8,#f3eeff); animation:pop .6s cubic-bezier(.2,1.4,.4,1);
+  }
+  .cupon .t { font-size:.72rem; letter-spacing:3px; color:#b3a3b8; font-weight:800; }
+  .cupon .e { font-size:3rem; margin:6px 0 2px; }
+  .cupon .p { font-family:"Caveat", cursive; font-size:2rem; font-weight:700; line-height:1.1; }
+  .cupon .d { color:var(--soft); font-size:.9rem; margin:6px 0 10px; }
+  .cupon .c { font-family:monospace; background:var(--ink); color:#fff; display:inline-block; padding:4px 10px; border-radius:8px; }
+  .cupon small { display:block; margin-top:10px; color:var(--soft); }
+  @keyframes pop { from { transform:scale(.6); opacity:0; } to { transform:none; opacity:1; } }
+
+  .mis { margin-top:22px; text-align:left; }
+  .mis h3 { font-size:.8rem; letter-spacing:2px; color:#b3a3b8; margin-bottom:8px; text-align:center; }
+  .mis li { list-style:none; background:#ffffffcc; border-radius:14px; padding:10px 14px; margin-bottom:8px;
+            display:flex; gap:10px; align-items:center; box-shadow:0 2px 10px #0000000d; font-size:.92rem; }
+  .mis li span.em { font-size:1.4rem; }
+  .mis li .cod { margin-left:auto; font-family:monospace; font-size:.75rem; color:var(--soft); }
+  .link { display:inline-block; margin-top:18px; color:var(--soft); font-size:.85rem; text-decoration:none; font-weight:600;
+          background:#ffffffaa; padding:8px 14px; border-radius:99px; }
+  .float { position:fixed; bottom:-40px; font-size:1.5rem; animation:up linear forwards; z-index:1; pointer-events:none; }
+  @keyframes up { to { transform:translateY(-115vh) rotate(30deg); opacity:0; } }
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>Ruleta de Cupones</h1>
+  <p class="sub">Un giro por semana. Lo que salga, te lo debo 🎁</p>
+
+  <div class="wheel-wrap">
+    <div class="pointer"></div>
+    <svg id="wheel" viewBox="-160 -160 320 320" aria-hidden="true"></svg>
+    <button class="hub" id="hub" onclick="girar()">GIRAR</button>
+  </div>
+  <p class="hint" id="hint"></p>
+
+  <div class="cupon" id="cupon">
+    <div class="t">CUPÓN VÁLIDO</div>
+    <div class="e" id="cE"></div>
+    <div class="p" id="cP"></div>
+    <div class="d" id="cD"></div>
+    <div class="c" id="cC"></div>
+    <small>📸 Sácale captura y cóbramelo cuando quieras</small>
+  </div>
+
+  <div class="mis" id="mis" style="display:none">
+    <h3>MIS CUPONES</h3>
+    <ul id="lista"></ul>
+  </div>
+
+  <a class="link" href="index.html">🫙 Volver al frasco</a>
+</div>
+
+<script>
+// ✏️ PERSONALIZA AQUÍ
+const CANAL = "animo-644cea567218";   // mismo canal ntfy
+const DIAS_ENTRE_GIROS = 7;            // cada cuántos días puede girar
+
+const PREMIOS = [
+  { e: "🍔", p: "Una sushi burger",          d: "Invitada por mí, donde tú quieras",            c: "#ffc8dd" },
+  { e: "🍵", p: "Un tecito juntos",          d: "Yo lo preparo o yo lo invito, tú eliges",      c: "#caffbf" },
+  { e: "🍬", p: "Recarga del cajón",         d: "Relleno tu cajón de emergencia de dulces",     c: "#ffe5a3" },
+  { e: "🎁", p: "Un regalito sorpresa",      d: "No te digo qué es. Esa es la gracia",          c: "#bde0fe" },
+  { e: "🍫", p: "Dulces a elección",         d: "Tú haces la lista, yo los consigo",            c: "#e0c3fc" },
+  { e: "🎬", p: "Tarde de película",         d: "Tú eliges la película, yo pongo las cabritas", c: "#ffd6a5" },
+  { e: "📞", p: "Llamada sin apuro",         d: "Una conversa larga, sin mirar la hora",        c: "#a0e7e5" },
+  { e: "✉️", p: "Una carta a mano",          d: "Escrita por mí, con mi letra fea y todo",      c: "#fbc4ab" },
+  { e: "🌸", p: "Un paseo",                  d: "Al lugar que tú elijas, cuando tú quieras",    c: "#ffc8dd" },
+  { e: "🎶", p: "Una playlist para ti",      d: "Canciones elegidas pensando en ti",            c: "#caffbf" },
+  { e: "🍦", p: "Un helado",                 d: "Del sabor que quieras, doble si es día gris",  c: "#ffe5a3" },
+  { e: "⭐", p: "Comodín",                   d: "Pides lo que quieras (dentro de lo razonable 😅)", c: "#bde0fe" },
+];
+
+const N = PREMIOS.length, ANG = 360 / N;
+function leer(k, def) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : def; } catch { return def; } }
+function escribir(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} }
+let cupones = leer("ruleta-cupones", []);   // [{ i, codigo, fecha }]
+
+// --- Dibujar la ruleta ---
+(function dibujar() {
+  const svg = document.getElementById("wheel"), R = 150;
+  let html = `<circle r="${R + 6}" fill="#fff"/>`;
+  PREMIOS.forEach((pr, i) => {
+    const a0 = (i * ANG - 90) * Math.PI / 180, a1 = ((i + 1) * ANG - 90) * Math.PI / 180;
+    const x0 = R * Math.cos(a0), y0 = R * Math.sin(a0), x1 = R * Math.cos(a1), y1 = R * Math.sin(a1);
+    const mid = i * ANG + ANG / 2;
+    html += `<path d="M0 0 L${x0} ${y0} A${R} ${R} 0 0 1 ${x1} ${y1} Z" fill="${pr.c}" stroke="#fff" stroke-width="2"/>`;
+    html += `<text transform="rotate(${mid}) translate(0 -112)" text-anchor="middle" dominant-baseline="middle" font-size="26">${pr.e}</text>`;
+  });
+  for (let k = 0; k < N; k++) {
+    const a = (k * ANG - 90) * Math.PI / 180;
+    html += `<circle cx="${(R + 1) * Math.cos(a)}" cy="${(R + 1) * Math.sin(a)}" r="3.5" fill="#f29bb0"/>`;
+  }
+  svg.innerHTML = html;
+})();
+
+function diasDesdeUltimo() {
+  if (!cupones.length) return Infinity;
+  return (Date.now() - cupones[cupones.length - 1].fecha) / 86400000;
+}
+function actualizarEstado() {
+  const hub = document.getElementById("hub"), hint = document.getElementById("hint");
+  const faltan = DIAS_ENTRE_GIROS - diasDesdeUltimo();
+  if (faltan > 0) {
+    hub.disabled = true;
+    const d = Math.floor(faltan), h = Math.ceil((faltan - d) * 24);
+    hint.textContent = `Próximo giro en ${d > 0 ? d + " días y " : ""}${h} horas ⏳`;
+  } else {
+    hub.disabled = false;
+    hint.textContent = "Toca GIRAR y cruza los dedos 🤞";
+  }
+  const lista = document.getElementById("lista");
+  lista.innerHTML = "";
+  [...cupones].reverse().forEach(c => {
+    const pr = PREMIOS[c.i]; if (!pr) return;
+    const li = document.createElement("li");
+    li.innerHTML = `<span class="em"></span><span class="pr"></span><span class="cod"></span>`;
+    li.querySelector(".em").textContent = pr.e;
+    li.querySelector(".pr").textContent = pr.p;
+    li.querySelector(".cod").textContent = c.codigo;
+    lista.appendChild(li);
+  });
+  document.getElementById("mis").style.display = cupones.length ? "block" : "none";
+}
+actualizarEstado();
+
+let rot = 0, girando = false;
+function girar() {
+  if (girando || diasDesdeUltimo() < DIAS_ENTRE_GIROS) return;
+  girando = true;
+  document.getElementById("hub").disabled = true;
+  document.getElementById("cupon").style.display = "none";
+  const i = Math.floor(Math.random() * N);
+  // el puntero está arriba: llevar el centro del premio i a 0°
+  const destino = 360 - (i * ANG + ANG / 2) + (Math.random() - .5) * ANG * .6;
+  rot += 360 * 6 + ((destino - rot % 360) + 360) % 360;
+  document.getElementById("wheel").style.transform = `rotate(${rot}deg)`;
+  document.getElementById("hint").textContent = "Girando... 🎡";
+  setTimeout(() => ganar(i), 5200);
+}
+
+function ganar(i) {
+  const pr = PREMIOS[i];
+  const codigo = "CUP-" + Math.random().toString(36).slice(2, 7).toUpperCase();
+  cupones.push({ i, codigo, fecha: Date.now() });
+  escribir("ruleta-cupones", cupones);
+  document.getElementById("cE").textContent = pr.e;
+  document.getElementById("cP").textContent = pr.p;
+  document.getElementById("cD").textContent = pr.d;
+  document.getElementById("cC").textContent = codigo;
+  document.getElementById("cupon").style.display = "block";
+  girando = false;
+  actualizarEstado();
+  llover([pr.e, "✨", "🎉", "💛"]);
+  fetch("https://ntfy.sh/" + CANAL, {
+    method: "POST", body: `🎡 Le salió: ${pr.e} ${pr.p} (${codigo})`,
+    headers: { "Title": "Gano un cupon", "Tags": "gift" }
+  }).catch(() => {});
+}
+
+function llover(emojis) {
+  for (let k = 0; k < 24; k++) {
+    const e = document.createElement("div");
+    e.className = "float";
+    e.textContent = emojis[k % emojis.length];
+    e.style.left = Math.random() * 100 + "vw";
+    e.style.animationDuration = 3 + Math.random() * 3 + "s";
+    e.style.animationDelay = Math.random() * 1.2 + "s";
+    document.body.appendChild(e);
+    setTimeout(() => e.remove(), 7000);
+  }
+}
+</script>
+</body>
+</html>
