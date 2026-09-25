@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>¿Qué como hoy?</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;700&family=Nunito:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+  :root { --ink:#3b2f4a; --soft:#7a6b8a; --accent:#e8798f; }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body {
+    min-height:100vh; display:flex; align-items:center; justify-content:center;
+    font-family:"Nunito", system-ui, sans-serif; color:var(--ink); padding:24px 16px;
+    background:
+      radial-gradient(circle at 15% 10%, #ffe9d6 0, transparent 42%),
+      radial-gradient(circle at 88% 85%, #dcf0e4 0, transparent 45%),
+      radial-gradient(circle at 80% 8%, #ffeef5 0, transparent 38%),
+      #fdf8f3;
+    overflow-x:hidden;
+  }
+  .card { max-width:420px; width:100%; text-align:center; position:relative; z-index:2; }
+  h1 { font-family:"Caveat", cursive; font-size:2.6rem; font-weight:700; line-height:1; }
+  .sub { color:var(--soft); margin:6px 0 20px; font-size:.95rem; line-height:1.5; }
+
+  .opts { display:flex; flex-direction:column; gap:11px; }
+  .opt {
+    border:none; border-radius:20px; padding:16px 18px; font-family:inherit; font-size:1rem; font-weight:800;
+    color:var(--ink); cursor:pointer; display:flex; align-items:center; gap:14px; text-align:left;
+    box-shadow:0 6px 18px #0000000f; transition:transform .15s, box-shadow .15s;
+  }
+  .opt:hover { transform:translateY(-3px); box-shadow:0 10px 22px #00000018; }
+  .opt span.em { font-size:1.9rem; }
+  .opt small { display:block; font-weight:600; color:var(--soft); font-size:.8rem; margin-top:2px; }
+  .o-cero { background:#ffe3e8; } .o-poco { background:#fff3cf; }
+  .o-ganas { background:#dff3e3; } .o-dulce { background:#ecdcff; } .o-tomar { background:#dbeefc; }
+
+  .plato {
+    display:none; background:#fff; border-radius:26px; padding:28px 22px 22px; position:relative;
+    box-shadow:0 16px 40px #3b2f4a1f; animation:pop .5s cubic-bezier(.2,1.3,.4,1);
+  }
+  .plato .em { font-size:4rem; line-height:1; }
+  .plato h2 { font-family:"Caveat", cursive; font-size:2.2rem; font-weight:700; margin:6px 0 2px; }
+  .plato .tag { display:inline-block; background:#f7eef2; color:var(--soft); border-radius:99px;
+                padding:4px 12px; font-size:.75rem; font-weight:800; letter-spacing:1px; }
+  .plato .pasos { text-align:left; margin:16px 0 4px; }
+  .plato .pasos li { list-style:none; display:flex; gap:10px; padding:7px 0; font-size:.95rem; line-height:1.4;
+                     border-top:1px dashed #f0e4ea; }
+  .plato .pasos li b { color:var(--accent); font-weight:800; }
+  .nota { color:var(--soft); font-size:.88rem; margin-top:12px; font-style:italic; }
+  @keyframes pop { from { transform:scale(.9); opacity:0; } to { transform:none; opacity:1; } }
+
+  .row { display:flex; gap:10px; justify-content:center; flex-wrap:wrap; margin-top:16px; }
+  .btn { border:none; border-radius:14px; padding:12px 18px; font-family:inherit; font-weight:800; font-size:.92rem;
+         cursor:pointer; background:var(--accent); color:#fff; box-shadow:0 6px 16px #e8798f55; transition:transform .15s; }
+  .btn.alt { background:#fff; color:var(--ink); box-shadow:0 4px 14px #0000000f; }
+  .btn:hover { transform:translateY(-2px); }
+  .listo { display:none; margin-top:16px; font-family:"Caveat", cursive; font-size:1.6rem; color:var(--accent); }
+  .link { display:inline-block; margin-top:20px; color:var(--soft); font-size:.85rem; text-decoration:none;
+          font-weight:600; background:#ffffffaa; padding:8px 14px; border-radius:99px; }
+  .float { position:fixed; bottom:-40px; font-size:1.5rem; animation:up linear forwards; z-index:1; pointer-events:none; }
+  @keyframes up { to { transform:translateY(-115vh) rotate(25deg); opacity:0; } }
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>¿Qué como hoy?</h1>
+  <p class="sub" id="sub">Pa que no tengas que pensarlo tú.<br>¿Con cuánta energía andas?</p>
+
+  <div class="opts" id="menu">
+    <button class="opt o-cero" onclick="sugerir('cero')"><span class="em">🛏️</span><span>Cero energía<small>Sin cocinar nada, lo abro y listo</small></span></button>
+    <button class="opt o-poco" onclick="sugerir('poco')"><span class="em">🍳</span><span>Un poquito<small>5 minutos máximo, algo calentito</small></span></button>
+    <button class="opt o-ganas" onclick="sugerir('ganas')"><span class="em">👩‍🍳</span><span>Ando con ganas<small>Me tinca cocinar algo de verdad</small></span></button>
+    <button class="opt o-dulce" onclick="sugerir('dulce')"><span class="em">🍬</span><span>Quiero algo dulce<small>Modo cajón de emergencia</small></span></button>
+    <button class="opt o-tomar" onclick="sugerir('tomar')"><span class="em">🍵</span><span>Solo quiero tomar algo<small>Y eso también cuenta</small></span></button>
+  </div>
+
+  <div class="plato" id="plato">
+    <div class="em" id="pEm"></div>
+    <h2 id="pNom"></h2>
+    <span class="tag" id="pTag"></span>
+    <ul class="pasos" id="pPasos"></ul>
+    <p class="nota" id="pNota"></p>
+    <div class="row">
+      <button class="btn" onclick="otra()">Otra idea</button>
+      <button class="btn alt" onclick="comi()">Ya, me sirve 👍</button>
+      <button class="btn alt" onclick="volver()">Volver</button>
+    </div>
+    <p class="listo" id="listo"></p>
+  </div>
+
+  <a class="link" href="index.html">🫙 Volver al frasco</a>
+</div>
+
+<script>
+// ✏️ PERSONALIZA AQUÍ: ideas de comida por nivel de energía
+const IDEAS = {
+  cero: [
+    { e:"🥪", n:"Pan con palta", t:"2 min", p:["Pan (del que haya)","Palta aplastada encima","Sal y listo"], nota:"Si hay limón, échale. Si no, da lo mismo." },
+    { e:"🥣", n:"Yogurt con lo que sea", t:"1 min", p:["Un yogurt","Échale cereal, granola o galletas molidas"], nota:"Sirve igual solo, sin nada encima." },
+    { e:"🍞", n:"Pan con queso", t:"1 min", p:["Dos panes","Queso en medio","Listo, eso es todo"], nota:"Comida de verdad igual. No te hagas problema." },
+    { e:"🍌", n:"Plátano con maní o chocolate", t:"1 min", p:["Un plátano","Mantequilla de maní o un cuadrito de chocolate"], nota:"Rápido, dulce y te levanta un poco." },
+    { e:"🥛", n:"Cereal con leche", t:"2 min", p:["Cereal en un bowl","Leche encima"], nota:"Clásico de emergencia. No hay hora mala para esto." },
+    { e:"🧀", n:"Tabla improvisada", t:"3 min", p:["Queso en cubitos","Galletas de agua o tostadas","Fruta si hay"], nota:"Picoteo también es comer. Se ve hasta elegante." },
+    { e:"🥫", n:"Atún con galletas", t:"3 min", p:["Abre una lata de atún","Mézclalo con palta o mayo","Encima de galletas de agua"], nota:"Tiene proteína, así que te va a dejar mejor." },
+    { e:"🍎", n:"Fruta cortada", t:"2 min", p:["La fruta que haya","Córtala en trocitos","Si quieres, échale azúcar flor"], nota:"Cortada da más ganas que entera. Truco real." },
+  ],
+  poco: [
+    { e:"🍳", n:"Huevos revueltos", t:"5 min", p:["2 huevos batidos con sal","Sartén con un poquito de aceite","Revuelve hasta que cuajen"], nota:"Si les echas queso al final, quedan mejores." },
+    { e:"🧀", n:"Tostadas con queso derretido", t:"4 min", p:["Pan con queso encima","Al microondas 40 seg o al sartén"], nota:"Orégano encima si tienes. Sube el nivel al tiro." },
+    { e:"🍜", n:"Sopa de sobre mejorada", t:"5 min", p:["La sopa como dice el sobre","Échale un huevo batido mientras hierve"], nota:"Con el huevo deja de ser sopa triste." },
+    { e:"🍝", n:"Fideos con mantequilla y queso", t:"10 min", p:["Fideos en agua hirviendo","Mantequilla y queso rallado encima"], nota:"Comida de niño chico y funciona siempre." },
+    { e:"🍚", n:"Arroz con huevo frito", t:"8 min", p:["Arroz (si hay del día anterior, mejor)","Un huevo frito encima","Sal y un poco de salsa de soya"], nota:"Barato, rápido y llena de verdad." },
+    { e:"🥣", n:"Avena en el microondas", t:"3 min", p:["Avena con leche o agua en un pocillo","Microondas 1,5 min","Plátano, miel o chocolate encima"], nota:"Calentito y suave, bueno para el estómago apretado." },
+    { e:"🌯", n:"Tortilla con lo que haya", t:"5 min", p:["Una tortilla o pan pita","Queso, palta, jamón, lo que encuentres","Calienta 1 min en el sartén"], nota:"Enrollado siempre sabe mejor. No sé por qué." },
+    { e:"🥔", n:"Papas al microondas", t:"7 min", p:["Papa pinchada con tenedor","Microondas 5 min","Ábrela y échale mantequilla y sal"], nota:"Parece elaborado y no hiciste casi nada." },
+  ],
+  ganas: [
+    { e:"🍝", n:"Fideos con salsa de tomate", t:"20 min", p:["Fideos hirviendo","Salsa con cebolla y ajo picados","Junta todo y échale queso"], nota:"Si te sobra, mañana ya tienes almuerzo listo." },
+    { e:"🥘", n:"Arroz con verduras salteadas", t:"20 min", p:["Arroz hirviendo","Verduras salteadas en el sartén","Sal, ajo y salsa de soya"], nota:"Sirve cualquier verdura, incluso las congeladas." },
+    { e:"🥞", n:"Panqueques", t:"20 min", p:["Harina, leche, huevo y azúcar","Mezcla y échalos al sartén","Manjar, miel o lo que tengas"], nota:"Terapia además de comida. Salen feos y da lo mismo." },
+    { e:"🍲", n:"Sopa de verduras", t:"25 min", p:["Zanahoria, papa, cebolla picadas","Agua y caldo, a hervir 20 min","Sal y listo"], nota:"Rinde para varios días. Un abrazo en plato." },
+    { e:"🥗", n:"Ensalada completa", t:"15 min", p:["Lechuga o tomate de base","Huevo duro, atún o pollo","Aceite, limón y sal"], nota:"Con proteína llena. Sin proteína da hambre a la hora." },
+    { e:"🍕", n:"Pizza en pan de molde", t:"15 min", p:["Pan de molde de base","Salsa de tomate y queso","Al horno o sartén tapado 10 min"], nota:"Pizza chiquitita, esfuerzo chiquitito." },
+    { e:"🍳", n:"Omelette con relleno", t:"12 min", p:["3 huevos batidos al sartén","Cuando cuaje, rellena con queso y verduras","Dóblalo por la mitad"], nota:"Si se rompe, le dices huevos revueltos y nadie se entera." },
+  ],
+  dulce: [
+    { e:"🍫", n:"Chocolate y té", t:"3 min", p:["Del cajón de emergencia, el que quieras","Un té calentito al lado"], nota:"Pa esto existe el cajón. Úsalo sin culpa." },
+    { e:"🍪", n:"Galletas mojadas en leche", t:"2 min", p:["Las galletas que tengas","Un vaso de leche","Mójalas sin vergüenza"], nota:"Si se cae una, es ley, no es culpa tuya." },
+    { e:"🍫", n:"Leche con chocolate", t:"3 min", p:["Leche caliente","Chocolate en polvo o un cuadrito derretido"], nota:"Sabe a cuando uno era chico." },
+    { e:"🍨", n:"Yogurt con miel y galletas", t:"2 min", p:["Yogurt en un pocillo","Miel encima","Galletas molidas arriba"], nota:"Parece postre de restorán y son 3 cosas." },
+    { e:"🍞", n:"Pan con manjar", t:"1 min", p:["Pan","Manjar","No hay paso 3"], nota:"Sin discusión. Es lo mejor que hay." },
+    { e:"🍌", n:"Plátano con chocolate derretido", t:"4 min", p:["Plátano en rodajas","Chocolate derretido 30 seg en el microondas","Échaselo encima"], nota:"Postre falso pero postre al fin." },
+    { e:"🧁", n:"Queque de taza", t:"5 min", p:["4 cdas de harina, 4 de azúcar, 3 de leche, 2 de aceite, cacao","Todo mezclado en una taza","Microondas 1,5 min"], nota:"Queque individual, sin lavar nada. Magia." },
+  ],
+  tomar: [
+    { e:"💧", n:"Un vaso de agua", t:"30 seg", p:["Un vaso","Agua","Tómatelo entero"], nota:"Suena tonto pero de verdad ayuda. Hazme caso." },
+    { e:"🍵", n:"Té calentito", t:"3 min", p:["Agua a hervir","El té que más te guste","Azúcar o miel si quieres"], nota:"Si es de manzanilla, mejor para el estómago apretado." },
+    { e:"🧃", n:"Jugo o algo frío", t:"1 min", p:["Jugo, bebida o agua con limón","Con hielo si hay"], nota:"Algo dulce y frío también levanta." },
+    { e:"☕", n:"Café o cortado", t:"4 min", p:["Café","Leche caliente si quieres cortado"], nota:"Ojo: si andas con la cabeza acelerada, mejor té." },
+    { e:"🥤", n:"Leche con plátano", t:"3 min", p:["Leche","Un plátano","Todo a la juguera"], nota:"Es casi una comida, así que cuenta doble." },
+  ],
+};
+
+const CIERRES = {
+  cero: ["Ya comiste algo. Eso ya es un logro de hoy 💛", "Perfecto. No tenía que ser una gran comida.", "Listo. Ahora descansa tranquila."],
+  poco: ["Cocinaste algo. Mírate, tú puedes 💪", "Bien ahí. Eso cuenta harto.", "Te lo ganaste. Come tranquila."],
+  ganas: ["¡Qué grande! Después me cuentas cómo quedó 😋", "Me dan ganas de probarlo. Guárdame un poquito.", "Cocinar con ganas es buena señal. Me alegro 💛"],
+  dulce: ["Pa eso está el cajón de emergencia 🍬", "Dulce merecido. Sin culpa, ¿ya?", "Perfecto. Los dulces también son cuidado propio."],
+  tomar: ["Eso también cuenta. En serio 💧", "Bien ahí. Después, si puedes, come algo chiquitito.", "Ya está. Eso ya es cuidarte."],
+};
+
+let modo = null, ultima = null;
+function sugerir(m) {
+  modo = m;
+  document.getElementById("menu").style.display = "none";
+  document.getElementById("sub").style.display = "none";
+  document.getElementById("plato").style.display = "block";
+  document.getElementById("listo").style.display = "none";
+  otra();
+}
+function otra() {
+  const lista = IDEAS[modo];
+  let i; do { i = Math.floor(Math.random() * lista.length); } while (lista[i].n === ultima && lista.length > 1);
+  const id = lista[i]; ultima = id.n;
+  document.getElementById("pEm").textContent = id.e;
+  document.getElementById("pNom").textContent = id.n;
+  document.getElementById("pTag").textContent = id.t.toUpperCase();
+  const ul = document.getElementById("pPasos"); ul.innerHTML = "";
+  id.p.forEach((paso, k) => {
+    const li = document.createElement("li");
+    li.innerHTML = "<b></b><span></span>";
+    li.querySelector("b").textContent = (k + 1) + ".";
+    li.querySelector("span").textContent = paso;
+    ul.appendChild(li);
+  });
+  document.getElementById("pNota").textContent = id.nota;
+  document.getElementById("listo").style.display = "none";
+  const p = document.getElementById("plato");
+  p.style.animation = "none"; p.offsetHeight; p.style.animation = "";
+}
+function comi() {
+  const c = CIERRES[modo];
+  const el = document.getElementById("listo");
+  el.textContent = c[Math.floor(Math.random() * c.length)];
+  el.style.display = "block";
+  llover([document.getElementById("pEm").textContent, "💛", "✨"]);
+}
+function volver() {
+  document.getElementById("plato").style.display = "none";
+  document.getElementById("menu").style.display = "flex";
+  document.getElementById("sub").style.display = "block";
+}
+function llover(emojis) {
+  for (let k = 0; k < 14; k++) {
+    const e = document.createElement("div");
+    e.className = "float";
+    e.textContent = emojis[k % emojis.length];
+    e.style.left = Math.random() * 100 + "vw";
+    e.style.animationDuration = 3 + Math.random() * 3 + "s";
+    e.style.animationDelay = Math.random() * 1.2 + "s";
+    document.body.appendChild(e);
+    setTimeout(() => e.remove(), 7000);
+  }
+}
+</script>
+</body>
+</html>
