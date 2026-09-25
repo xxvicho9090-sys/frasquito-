@@ -33,7 +33,8 @@
   .opt span.em { font-size:1.9rem; }
   .opt small { display:block; font-weight:600; color:var(--soft); font-size:.8rem; margin-top:2px; }
   .o-cero { background:#ffe3e8; } .o-poco { background:#fff3cf; }
-  .o-ganas { background:#dff3e3; } .o-dulce { background:#ecdcff; } .o-tomar { background:#dbeefc; }
+  .o-ganas { background:#dff3e3; } .o-dulce { background:#ecdcff; }
+  .o-salado { background:#ffe8d4; } .o-tomar { background:#dbeefc; }
 
   .plato {
     display:none; background:#fff; border-radius:26px; padding:28px 22px 22px; position:relative;
@@ -72,6 +73,7 @@
     <button class="opt o-poco" onclick="sugerir('poco')"><span class="em">🍳</span><span>Un poquito<small>5 minutos máximo, algo calentito</small></span></button>
     <button class="opt o-ganas" onclick="sugerir('ganas')"><span class="em">👩‍🍳</span><span>Ando con ganas<small>Me tinca cocinar algo de verdad</small></span></button>
     <button class="opt o-dulce" onclick="sugerir('dulce')"><span class="em">🍬</span><span>Quiero algo dulce<small>Modo cajón de emergencia</small></span></button>
+    <button class="opt o-salado" onclick="sugerir('salado')"><span class="em">🥨</span><span>Quiero algo salado<small>Picoteo, crujiente, con hartita sal</small></span></button>
     <button class="opt o-tomar" onclick="sugerir('tomar')"><span class="em">🍵</span><span>Solo quiero tomar algo<small>Y eso también cuenta</small></span></button>
   </div>
 
@@ -137,6 +139,17 @@ const IDEAS = {
     { e:"🍏", n:"Manzana caliente con canela", t:"5 min", p:["Manzana en cubitos","Azúcar y canela encima","Microondas 3 min"], nota:"Postre falso pero postre al fin. Y la casa queda oliendo rico." },
     { e:"🍮", n:"Plátano con leche condensada", t:"2 min", p:["Plátano en rodajas en un pocillo","Leche condensada o manjar encima","Galletas molidas arriba si hay"], nota:"Tres cosas y parece postre de verdad." },
   ],
+  salado: [
+    { e:"🍿", n:"Cabritas con hartita sal", t:"5 min", p:["Maíz en una olla con aceite, tapada","Espera a que dejen de sonar","Sal, y más sal"], nota:"Las de bolsa también valen, obvio." },
+    { e:"🥑", n:"Galletas de agua con palta", t:"3 min", p:["Galletas de agua o soda","Palta aplastada encima","Sal y limón"], nota:"Crujiente y salado, la mezcla perfecta." },
+    { e:"🥚", n:"Huevos duros con sal", t:"10 min", p:["Huevos al agua hirviendo 10 min","Pélalos","Sal y pimienta encima"], nota:"Salado, llena y no te complica nada." },
+    { e:"🥜", n:"Maní o frutos secos", t:"30 seg", p:["Abre el paquete","Eso es todo"], nota:"Si son salados, mejor todavía." },
+    { e:"🍟", n:"Papas fritas de bolsa", t:"30 seg", p:["La bolsa que tengas","Ponlas en un pocillo pa que rinda más"], nota:"Hoy no es día de juzgarte. Come nomás." },
+    { e:"🥪", n:"Pan con palta y sal", t:"2 min", p:["Pan tostado","Palta aplastada","Sal, limón y aceite de oliva si hay"], nota:"El clásico que nunca falla." },
+    { e:"🫓", n:"Tostadas con aceite y sal", t:"3 min", p:["Pan bien tostado","Aceite de oliva encima","Sal gruesa y orégano"], nota:"Suena simple pero es adictivo." },
+    { e:"🧅", n:"Papas al sartén", t:"12 min", p:["Papas en cubitos chicos","Al sartén con harto aceite","Sal cuando estén doradas"], nota:"Si les echas ají de color, quedan mejores." },
+    { e:"🌭", n:"Completo de emergencia", t:"8 min", p:["Vienesas al agua caliente","Pan, palta y tomate","Mayo si hay"], nota:"Si no hay pan de completo, en pan normal sabe igual." },
+  ],
   tomar: [
     { e:"💧", n:"Un vaso de agua", t:"30 seg", p:["Un vaso","Agua","Tómatelo entero"], nota:"Suena tonto pero de verdad ayuda. Hazme caso." },
     { e:"🍵", n:"Té calentito", t:"3 min", p:["Agua a hervir","El té que más te guste","Azúcar o miel si quieres"], nota:"Si es de manzanilla, mejor para el estómago apretado." },
@@ -152,6 +165,7 @@ const CIERRES = {
   poco: ["Cocinaste algo. Mírate, tú puedes 💪", "Bien ahí. Eso cuenta harto.", "Te lo ganaste. Come tranquila."],
   ganas: ["¡Qué grande! Después me cuentas cómo quedó 😋", "Me dan ganas de probarlo. Guárdame un poquito.", "Cocinar con ganas es buena señal. Me alegro 💛"],
   dulce: ["Pa eso está el cajón de emergencia 🍬", "Dulce merecido. Sin culpa, ¿ya?", "Perfecto. Los dulces también son cuidado propio."],
+  salado: ["Picoteo salado, buena elección 🥨", "Eso es puro antojo y está perfecto.", "Salado y crujiente. Aprobado."],
   tomar: ["Eso también cuenta. En serio 💧", "Bien ahí. Después, si puedes, come algo chiquitito.", "Ya está. Eso ya es cuidarte."],
 };
 
