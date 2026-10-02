@@ -57,7 +57,7 @@ const E = {
   cv: document.getElementById("cv"), ctx: null, dom: document.getElementById("dom"),
   zona: document.getElementById("zona"), W: 0, H: 0, dpr: Math.min(devicePixelRatio || 1, 2),
   juego: null, score: 0, tiempo: 0, corriendo: false, ultimo: 0, parts: [], shake: 0,
-  puntero: { x: 0, y: 0, abajo: false },
+  puntero: { x: 0, y: 0, abajo: false, movido: false }, token: 0, pausa: false, timers: [],
 };
 E.ctx = E.cv.getContext("2d");
 
@@ -83,6 +83,9 @@ function tono(f = 440, dur = .08, tipo = "sine", vol = .05) {
   } catch {}
 }
 const vibrar = ms => { try { navigator.vibrate && navigator.vibrate(ms); } catch {} };
+function luego(fn, ms) { const id = setTimeout(() => { E.timers = E.timers.filter(t => t !== id); fn(); }, ms); E.timers.push(id); return id; }
+function cadaTanto(fn, ms) { const id = setInterval(fn, ms); E.timers.push(id); return id; }
+function limpiarTimers() { E.timers.forEach(id => { clearTimeout(id); clearInterval(id); }); E.timers = []; }
 
 /* --- partículas --- */
 function chispas(x, y, color = "#e8798f", n = 10, texto = null) {
@@ -145,18 +148,19 @@ function coords(e) {
 }
 let ini = null;
 E.zona.addEventListener("pointerdown", e => {
-  if (!E.corriendo) return;
-  const c = coords(e); E.puntero = { ...c, abajo: true }; ini = { ...c, t: Date.now() };
+  if (!E.corriendo || E.pausa) return;
+  try { E.zona.setPointerCapture(e.pointerId); } catch {}
+  const c = coords(e); E.puntero = { ...c, abajo: true, movido: true }; ini = { ...c, t: Date.now() };
   E.juego && E.juego.tocar && E.juego.tocar(c.x, c.y, "abajo");
 });
 E.zona.addEventListener("pointermove", e => {
-  if (!E.corriendo) return;
+  if (!E.corriendo || E.pausa) return;
   e.preventDefault();
-  const c = coords(e); E.puntero.x = c.x; E.puntero.y = c.y;
+  const c = coords(e); E.puntero.x = c.x; E.puntero.y = c.y; E.puntero.movido = true;
   E.juego && E.juego.tocar && E.juego.tocar(c.x, c.y, "mover");
 }, { passive: false });
 addEventListener("pointerup", e => {
-  if (!E.corriendo) return;
+  if (!E.corriendo || E.pausa) return;
   E.puntero.abajo = false;
   const c = coords(e);
   E.juego && E.juego.tocar && E.juego.tocar(c.x, c.y, "arriba");
@@ -170,7 +174,9 @@ addEventListener("pointerup", e => {
 
 /* --- bucle --- */
 function loop(t) {
-  if (!E.corriendo) return;
+  if (!E.corriendo || t === undefined) return;
+  if (loop.token !== E.token) return;          // bucle viejo: se apaga
+  if (E.pausa) { E.ultimo = t; return requestAnimationFrame(loop); }
   const dt = Math.min((t - E.ultimo) / 1000, .05); E.ultimo = t;
   if (E.juego.tiempo) {
     E.tiempo -= dt;
@@ -190,6 +196,13 @@ function loop(t) {
   requestAnimationFrame(loop);
 }
 
+/* --- pausa automática si sale de la app --- */
+document.addEventListener("visibilitychange", () => {
+  if (!E.corriendo) return;
+  if (document.hidden) { E.pausa = true; ovMostrar("Pausa ⏸️", "Volviste a otra app, así que te guardé el juego.", [{ txt: "Seguir jugando", cls: "btn", fn: reanudar }]); }
+});
+function reanudar() { ovOcultar(); E.pausa = false; E.ultimo = performance.now(); }
+
 /* --- iniciar / terminar --- */
 function jugar(id) {
   const def = JUEGOS.find(j => j.id === id);
@@ -208,24 +221,31 @@ function jugar(id) {
   ]);
 }
 function arrancar() {
+  limpiarTimers();
   ovOcultar();
-  E.score = 0; E.tiempo = E.juego.tiempo || 0; E.parts = [];
+  E.corriendo = false; E.pausa = false;
+  E.score = 0; E.tiempo = E.juego.tiempo || 0; E.parts = []; E.shake = 0;
   E.dom.innerHTML = "";
   medir();
+  E.puntero = { x: E.W / 2, y: E.H / 2, abajo: false, movido: false };
   E.juego.init && E.juego.init(api);
   hud();
   if (!E.juego.tiempo) document.getElementById("hudMedio").textContent = E.juego.medio || "▶";
   E.corriendo = true; E.ultimo = performance.now();
+  loop.token = ++E.token;
   requestAnimationFrame(loop);
 }
 function terminar() {
   if (!E.corriendo) return;
-  E.corriendo = false;
+  E.corriendo = false; E.pausa = false; E.token++;
+  limpiarTimers();
   E.juego.destroy && E.juego.destroy();
+  api.tono(330, .12, "triangle"); luego(() => api.tono(262, .2, "triangle"), 110);
   const puntos = Math.round(E.score * (E.juego.factor || 1));
   const rec = S.leer("rec-" + E.juego.id, 0);
   const nuevoRec = E.score > rec;
   if (nuevoRec) S.escribir("rec-" + E.juego.id, E.score);
+  document.getElementById("hudDer").textContent = "🏆 " + S.leer("rec-" + E.juego.id, 0);
   const antes = fichasDisponibles();
   const total = S.leer("juego-puntos", 0) + puntos;
   S.escribir("juego-puntos", total);
@@ -253,7 +273,8 @@ function terminar() {
   }
 }
 function volverHub() {
-  E.corriendo = false;
+  E.corriendo = false; E.pausa = false; E.token++;
+  limpiarTimers();
   E.juego && E.juego.destroy && E.juego.destroy();
   E.juego = null; E.dom.innerHTML = ""; ovOcultar();
   document.getElementById("jugar").classList.add("oculto");
@@ -305,7 +326,7 @@ JUEGOS.push({
     this.cesta = E.W / 2; this.items = []; this.spawn = 0; this.racha = 0;
   },
   update(dt) {
-    this.cesta += (E.puntero.x - this.cesta) * Math.min(1, dt * 14);
+    if (E.puntero.movido) this.cesta += (E.puntero.x - this.cesta) * Math.min(1, dt * 14);
     this.cesta = Math.max(38, Math.min(E.W - 38, this.cesta));
     this.spawn -= dt;
     if (this.spawn <= 0) {
@@ -376,14 +397,18 @@ JUEGOS.push({
       this.intentos++; this.bloqueo = true;
       const [a, b] = this.vueltas;
       if (a.dataset.em === b.dataset.em) {
-        setTimeout(() => {
+        luego(() => {
+          if (!E.corriendo) return;
           a.classList.add("ok"); b.classList.add("ok");
           this.pares++; api.sumar(20); api.tono(760, .1); api.vibrar(25);
           this.vueltas = []; this.bloqueo = false;
           if (this.pares === 8) { api.sumar(Math.max(0, 60 - this.intentos * 3) + Math.round(E.tiempo)); api.fin(); }
         }, 320);
       } else {
-        setTimeout(() => { a.classList.remove("v"); b.classList.remove("v"); this.vueltas = []; this.bloqueo = false; api.tono(220, .08, "triangle"); }, 700);
+        luego(() => {
+          if (!E.corriendo) return;
+          a.classList.remove("v"); b.classList.remove("v"); this.vueltas = []; this.bloqueo = false; api.tono(220, .08, "triangle");
+        }, 700);
       }
     }
   },
@@ -407,8 +432,9 @@ JUEGOS.push({
     this.bs = this.bs.filter(b => b.y > -40 && !b.pop);
   },
   tocar(x, y, tipo) {
-    if (tipo !== "abajo") return;
-    for (const b of this.bs) {
+    if (tipo === "arriba") return;
+    for (let i = this.bs.length - 1; i >= 0; i--) {
+      const b = this.bs[i];
       if (Math.hypot(b.x - x, b.y - y) < b.r + 8) {
         b.pop = true;
         if (b.mala) { api.sumar(-8, b.x, b.y); api.sacudir(8); api.tono(140, .14, "square"); api.vibrar(45); }
@@ -442,7 +468,7 @@ JUEGOS.push({
     this.cel = Math.floor(Math.min(E.W, E.H) / 15);
     this.cols = Math.floor(E.W / this.cel); this.filas = Math.floor(E.H / this.cel);
     this.ox = (E.W - this.cols * this.cel) / 2; this.oy = (E.H - this.filas * this.cel) / 2;
-    this.s = [{ x: 4, y: Math.floor(this.filas / 2) }]; this.d = { x: 1, y: 0 }; this.prox = { x: 1, y: 0 };
+    this.s = [{ x: 4, y: Math.floor(this.filas / 2) }]; this.d = { x: 1, y: 0 }; this.cola = [];
     this.acum = 0; this.vel = .16; this.crecer = 2; this.poner();
   },
   poner() {
@@ -452,12 +478,15 @@ JUEGOS.push({
   },
   deslizar(dir) {
     const m = { izq: { x: -1, y: 0 }, der: { x: 1, y: 0 }, arriba: { x: 0, y: -1 }, abajo: { x: 0, y: 1 } }[dir];
-    if (m && (m.x !== -this.d.x || m.y !== -this.d.y)) this.prox = m;
+    if (!m) return;
+    const ref = this.cola.length ? this.cola[this.cola.length - 1] : this.d;
+    if ((m.x === -ref.x && m.y === -ref.y) || (m.x === ref.x && m.y === ref.y)) return;
+    if (this.cola.length < 2) this.cola.push(m);
   },
   update(dt) {
     this.acum += dt;
     if (this.acum < this.vel) return;
-    this.acum = 0; this.d = this.prox;
+    this.acum = 0; if (this.cola.length) this.d = this.cola.shift();
     const cab = { x: this.s[0].x + this.d.x, y: this.s[0].y + this.d.y };
     if (cab.x < 0 || cab.y < 0 || cab.x >= this.cols || cab.y >= this.filas || this.s.some(p => p.x === cab.x && p.y === cab.y)) {
       api.sacudir(10); api.tono(120, .25, "sawtooth"); api.vibrar(90); return api.fin();
@@ -515,7 +544,8 @@ JUEGOS.push({
     if (dif < 5) { this.perfectos++; api.sumar(20 + this.perfectos * 5); api.tono(880, .1); api.chispas(izq + ancho / 2, E.H - 40 - this.pila.length * this.bh + this.cam, "#e0a92b", 14); }
     else { this.perfectos = 0; api.sumar(10); api.tono(560, .07); }
     this.pila.push({ x: izq, w: ancho, y: 0 });
-    this.actual = { x: Math.random() < .5 ? 0 : E.W - ancho, w: ancho, dir: Math.random() < .5 ? 1 : -1, v: 150 + this.pila.length * 9 };
+    this.actual = { x: Math.random() < .5 ? 0 : E.W - ancho, w: ancho, dir: Math.random() < .5 ? 1 : -1,
+                    v: Math.min(330, 150 + this.pila.length * 9) };
     api.vibrar(18);
   },
   draw(c) {
@@ -551,12 +581,12 @@ JUEGOS.push({
     });
     this.btns = [...cont.children]; this.sec = []; this.ronda = 0;
     api.hud("🍬 0", "🎵", "🏆 " + S.leer("rec-simon", 0));
-    setTimeout(() => this.siguiente(), 500);
+    luego(() => this.siguiente(), 600);
   },
   prender(i, ms = 380) {
     const b = this.btns[i]; if (!b) return;
     b.classList.add("on"); api.tono(this.cols[i][1], ms / 1000 * .8);
-    setTimeout(() => b.classList.remove("on"), ms * .75);
+    luego(() => b.classList.remove("on"), ms * .75);
   },
   siguiente() {
     this.ronda++;
@@ -564,30 +594,34 @@ JUEGOS.push({
     this.paso = 0; this.turno = false;
     const p = E.dom.querySelector("#pista"); if (p) p.textContent = "Ronda " + this.ronda + " — mira bien...";
     let i = 0;
-    const int = setInterval(() => {
-      if (!E.corriendo) return clearInterval(int);
-      this.prender(this.sec[i]); i++;
+    const rapido = Math.max(300, 560 - this.ronda * 18);
+    this.int = cadaTanto(() => {
+      if (!E.corriendo || E.pausa) { if (!E.corriendo) clearInterval(this.int); return; }
+      this.prender(this.sec[i], Math.min(380, rapido * .7)); i++;
       if (i >= this.sec.length) {
-        clearInterval(int);
-        setTimeout(() => { this.turno = true; const q = E.dom.querySelector("#pista"); if (q) q.textContent = "¡Ahora tú! 👆"; }, 420);
+        clearInterval(this.int);
+        luego(() => { if (!E.corriendo) return; this.turno = true; const q = E.dom.querySelector("#pista"); if (q) q.textContent = "¡Ahora tú! 👆"; }, 420);
       }
-    }, 560);
+    }, rapido);
   },
+  destroy() { clearInterval(this.int); },
   tocarBoton(i) {
-    if (!this.turno || !E.corriendo) return;
+    if (!this.turno || !E.corriendo || E.pausa) return;
     this.prender(i, 220);
     if (this.sec[this.paso] === i) {
       this.paso++;
       if (this.paso === this.sec.length) {
         this.turno = false;
         api.sumar(this.ronda * 10); api.vibrar(25);
-        setTimeout(() => this.siguiente(), 700);
+        const p = E.dom.querySelector("#pista"); if (p) p.textContent = "¡Bien! 🎉";
+        luego(() => { if (E.corriendo) this.siguiente(); }, 800);
       }
     } else {
       api.tono(100, .35, "sawtooth"); api.vibrar(120);
-      E.dom.querySelector("#sim").classList.add("mal");
+      const sim = E.dom.querySelector("#sim"); if (sim) sim.classList.add("mal");
+      const p = E.dom.querySelector("#pista"); if (p) p.textContent = "Uy, esa no era 😅";
       this.turno = false;
-      setTimeout(() => api.fin(), 500);
+      luego(() => api.fin(), 700);
     }
   },
 });
@@ -601,14 +635,18 @@ JUEGOS.push({
     this.x = E.W / 2; this.obs = []; this.spawn = 0; this.vel = 190; this.dist = 0; this.linea = 0;
   },
   update(dt) {
-    this.x += (E.puntero.x - this.x) * Math.min(1, dt * 12);
+    if (E.puntero.movido) this.x += (E.puntero.x - this.x) * Math.min(1, dt * 12);
     this.x = Math.max(20, Math.min(E.W - 20, this.x));
     this.vel += dt * 7; this.dist += dt; this.linea = (this.linea + this.vel * dt) % 40;
     this.spawn -= dt;
     if (this.spawn <= 0) {
       this.spawn = .42 + Math.random() * .25;
       const bueno = Math.random() < .22;
-      this.obs.push({ x: 24 + Math.random() * (E.W - 48), y: -30, bueno, r: bueno ? 14 : 18 + Math.random() * 8 });
+      let x, intentos = 0;
+      do {
+        x = 24 + Math.random() * (E.W - 48); intentos++;
+      } while (intentos < 8 && this.obs.some(o => o.y < 70 && !o.bueno && !bueno && Math.abs(o.x - x) < 86));
+      this.obs.push({ x, y: -30, bueno, r: bueno ? 14 : 18 + Math.random() * 8 });
     }
     const py = E.H - 70;
     for (const o of this.obs) {
@@ -676,11 +714,12 @@ JUEGOS.push({
     }
     for (const l of lineas) {
       let v = l.map(i => this.g[i]).filter(x => x >= 0);
+      const ya = [];                      // cada dulce se junta una sola vez por movimiento
       for (let k = 0; k < v.length - 1; k++) {
-        if (v[k] === v[k + 1]) {
-          v[k]++; v.splice(k + 1, 1);
+        if (v[k] === v[k + 1] && !ya.includes(k)) {
+          v[k]++; v.splice(k + 1, 1); ya.push(k);
           api.sumar((v[k] + 1) * 6); api.tono(420 + v[k] * 60, .07); api.vibrar(15);
-          if (v[k] === 7) api.chispas(E.W / 2, E.H / 2, "#e0a92b", 20);
+          if (v[k] === 7) { api.chispas(E.W / 2, E.H / 2, "#e0a92b", 24); api.sumar(60); }
         }
       }
       while (v.length < 4) v.push(-1);
@@ -750,15 +789,16 @@ JUEGOS.push({
   update(dt) {
     const b = this.b;
     b.vy += this.g * dt; b.x += b.vx * dt; b.y += b.vy * dt;
-    if (b.x < b.r) { b.x = b.r; b.vx = Math.abs(b.vx); }
-    if (b.x > E.W - b.r) { b.x = E.W - b.r; b.vx = -Math.abs(b.vx); }
+    if (b.x < b.r) { b.x = b.r; b.vx = Math.abs(b.vx) * .9; }
+    if (b.x > E.W - b.r) { b.x = E.W - b.r; b.vx = -Math.abs(b.vx) * .9; }
+    if (b.y < b.r * .4) { b.y = b.r * .4; b.vy = Math.abs(b.vy) * .5; }   // techo blandito
     if (b.y > E.H + 60) { api.sacudir(10); api.tono(120, .3, "sawtooth"); api.vibrar(100); api.fin(); }
   },
   tocar(x, y, tipo) {
     if (tipo !== "abajo") return;
     const b = this.b;
-    if (Math.hypot(b.x - x, b.y - y) < b.r + 26) {
-      b.vy = -330 - this.toques * 3;
+    if (Math.hypot(b.x - x, b.y - y) < b.r + 30) {
+      b.vy = -(330 + this.toques * 2.2);
       b.vx += (b.x - x) * 3.2;
       b.vx = Math.max(-260, Math.min(260, b.vx));
       this.toques++; this.g = 420 + this.toques * 7;
