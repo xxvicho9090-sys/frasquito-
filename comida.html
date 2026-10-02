@@ -10,8 +10,8 @@
   :root { --ink:#3b2f4a; --soft:#7a6b8a; --accent:#e8798f; }
   * { box-sizing:border-box; margin:0; padding:0; }
   body {
-    min-height:100vh; display:flex; align-items:center; justify-content:center;
-    font-family:"Nunito", system-ui, sans-serif; color:var(--ink); padding:24px 16px;
+    min-height:100vh; display:block;
+    font-family:"Nunito", system-ui, sans-serif; color:var(--ink); padding:clamp(16px,6vh,56px) 16px;
     background:
       radial-gradient(circle at 15% 10%, #ffe9d6 0, transparent 42%),
       radial-gradient(circle at 88% 85%, #dcf0e4 0, transparent 45%),
@@ -19,7 +19,7 @@
       #fdf8f3;
     overflow-x:hidden;
   }
-  .card { max-width:420px; width:100%; text-align:center; position:relative; z-index:2; }
+  .card { max-width:420px; width:100%; margin-inline:auto; text-align:center; position:relative; z-index:2; }
   h1 { font-family:"Caveat", cursive; font-size:2.6rem; font-weight:700; line-height:1; }
   .sub { color:var(--soft); margin:6px 0 20px; font-size:.95rem; line-height:1.5; }
 

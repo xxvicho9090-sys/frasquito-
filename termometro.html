@@ -8,16 +8,17 @@
   :root { --bg1:#ffe6ef; --bg2:#e8e4ff; --card:#ffffffcc; --ink:#3a2a40; }
   * { box-sizing:border-box; margin:0; padding:0; }
   body {
-    min-height:100vh; display:flex; align-items:center; justify-content:center;
+    min-height:100vh; display:block;
     font-family:"Segoe UI", system-ui, sans-serif; color:var(--ink);
     background:linear-gradient(135deg,var(--bg1),var(--bg2));
-    transition:background .8s; padding:16px; overflow-x:hidden;
+    transition:background .8s; padding:clamp(16px,6vh,56px) 16px; overflow-x:hidden;
   }
   body.bueno { background:linear-gradient(135deg,#ffd1dc,#ff8fab); }
   body.piola { background:linear-gradient(135deg,#fff3c4,#b8f2e6); }
   body.gris  { background:linear-gradient(135deg,#cfd8e3,#9fb3c8); }
   body.dificil { background:linear-gradient(135deg,#d9d4e7,#b8b0d0); }
   .card {
+    margin-inline:auto;
     background:var(--card); backdrop-filter:blur(8px); border-radius:28px;
     padding:32px 24px; max-width:440px; width:100%; text-align:center;
     box-shadow:0 20px 50px #0002; position:relative; z-index:2;
