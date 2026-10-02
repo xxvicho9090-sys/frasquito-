@@ -66,7 +66,7 @@ function medir() {
   E.W = r.width; E.H = r.height;
   E.cv.width = E.W * E.dpr; E.cv.height = E.H * E.dpr;
   E.ctx.setTransform(E.dpr, 0, 0, E.dpr, 0, 0);
-  if (E.juego && E.juego.resize) E.juego.resize(E.W, E.H);
+  if (E.juego && E.juego.resize && E.corriendo) E.juego.resize(E.W, E.H);
 }
 addEventListener("resize", () => { if (!document.getElementById("jugar").classList.contains("oculto")) medir(); });
 
@@ -471,6 +471,15 @@ JUEGOS.push({
     this.s = [{ x: 4, y: Math.floor(this.filas / 2) }]; this.d = { x: 1, y: 0 }; this.cola = [];
     this.acum = 0; this.vel = .16; this.crecer = 2; this.poner();
   },
+  resize() {
+    const antes = { cols: this.cols, filas: this.filas };
+    this.cel = Math.floor(Math.min(E.W, E.H) / 15);
+    this.cols = Math.floor(E.W / this.cel); this.filas = Math.floor(E.H / this.cel);
+    this.ox = (E.W - this.cols * this.cel) / 2; this.oy = (E.H - this.filas * this.cel) / 2;
+    if (!antes.cols) return;
+    this.s = this.s.map(p => ({ x: Math.min(p.x, this.cols - 1), y: Math.min(p.y, this.filas - 1) }));
+    this.fruta = { x: Math.min(this.fruta.x, this.cols - 1), y: Math.min(this.fruta.y, this.filas - 1) };
+  },
   poner() {
     do { this.fruta = { x: Math.floor(Math.random() * this.cols), y: Math.floor(Math.random() * this.filas) }; }
     while (this.s.some(p => p.x === this.fruta.x && p.y === this.fruta.y));
@@ -524,9 +533,16 @@ JUEGOS.push({
   ayuda: "Toca la pantalla para soltar el bloque 🧁<br>Apílalos lo más derecho posible",
   init() {
     this.bh = 26; this.base = { x: E.W / 2 - 55, w: 110 };
+    this.anchoPrev = E.W;
     this.pila = [{ ...this.base, y: E.H - 40 }];
     this.actual = { x: 0, w: 110, dir: 1, v: 150 };
     this.cam = 0; this.perfectos = 0;
+  },
+  resize() {
+    if (!this.anchoPrev || this.anchoPrev === E.W) { this.anchoPrev = E.W; return; }
+    const k = E.W / this.anchoPrev; this.anchoPrev = E.W;
+    this.pila.forEach(b => { b.x *= k; b.w *= k; });
+    this.actual.x *= k; this.actual.w *= k;
   },
   update(dt) {
     const a = this.actual;
