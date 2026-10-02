@@ -85,6 +85,21 @@
   .send { display:flex; justify-content:space-between; align-items:center; margin-top:8px; }
   .send small { color:var(--soft); }
   .btn.sm { padding:9px 16px; margin:0; font-size:.9rem; }
+  .note.dorado {
+    background:linear-gradient(140deg,#fffbe8,#fff3c4 60%,#ffeaa0);
+    background-image:none; box-shadow:0 0 0 2px #e9c46a inset, 0 18px 44px #c9992e44;
+  }
+  .note.dorado::before { background:#f0c75eaa; }
+  .note.dorado .num { color:#b58b2a; }
+  .note.rico {
+    background:linear-gradient(140deg,#fff3ea,#ffe4d1); background-image:none;
+    box-shadow:0 0 0 2px #f0b793 inset, 0 18px 44px #c9772e33;
+  }
+  .note.rico::before { background:#f6c1a3cc; }
+  .note.rico .num { color:#c4713f; }
+  .note .btn.esp { display:block; text-align:center; text-decoration:none; margin-top:14px; }
+  .note.dorado .btn.esp { background:#e0a92b; box-shadow:0 6px 16px #e0a92b55; }
+  .note.rico .btn.esp { background:#e07a45; box-shadow:0 6px 16px #e07a4555; }
   .hambre { margin-top:14px; background:#fff; border-radius:18px; padding:12px 14px; display:flex;
             align-items:center; justify-content:space-between; gap:10px; box-shadow:0 4px 14px #0000000f; }
   .hambre span { font-weight:700; font-size:.92rem; }
@@ -175,20 +190,15 @@
       <div class="num" id="num"></div>
       <p id="texto"></p>
       <div class="firma">— yo ✨</div>
+      <a class="btn esp" id="espBtn" style="display:none" href="#"></a>
     </div>
     <div class="repe" id="repe">
       <span id="repeTxt">¿Este ya te había salido? 🙈</span>
       <br><button class="btn" id="otroBtn" onclick="sacarOtro()">Sacar otro papelito</button>
     </div>
   </div>
-  <div class="hambre" id="hambre" style="display:none">
-    <span>¿Te dio hambre?</span>
-    <a class="btn sm" href="comida.html">🍽️ Ver qué comer</a>
-  </div>
   <p class="next" id="next"></p>
   <button class="cambiar" id="cambiar" onclick="cambiarAnimo()">Cambiar cómo me siento</button>
-  <br><a class="link" href="ruleta.html">🎡 Ruleta de cupones</a>
-  <a class="link" href="comida.html">🍽️ ¿Qué como hoy?</a>
   </div>
 </div>
 
@@ -337,6 +347,32 @@ const MENSAJES = {
   ],
 };
 
+// Papelitos especiales (salen de vez en cuando)
+const ESPECIAL = {
+  cupon: {
+    prob: 0.07,            // 7% de las veces
+    emojis: ["🎫","✨","🎁","⭐"],
+    boton: "🎡 Ir a girar la ruleta",
+    link: "ruleta.html",
+    textos: [
+      "¡Papelito dorado! 🎉 Este te da derecho a girar la ruleta de cupones. Lo que salga, te lo debo.",
+      "Uy, te tocó el dorado. Eso significa premio: anda a girar la ruleta 🎁",
+      "Este papelito vale plata (mi plata). Gira la ruleta y cóbrame lo que salga 😅",
+    ],
+  },
+  comida: {
+    prob: 0.10,            // 10% de las veces
+    emojis: ["🍽️","🍬","🍟","💛"],
+    boton: "🍽️ Ver qué comer",
+    link: "comida.html",
+    textos: [
+      "Pregunta importante: ¿comiste algo hoy? Si no, te dejo ideas aquí abajo 👇",
+      "Este papelito viene con comida incluida. Bueno, con ideas de comida. Yo hago lo que puedo 😅",
+      "Antojo detectado 🚨 Toca el botón y te tiro una idea rica.",
+    ],
+  },
+};
+
 const COLORES = ["#ffc8dd","#bde0fe","#ffe5a3","#caffbf","#e0c3fc","#ffd6a5","#a0e7e5","#fbc4ab"];
 const HOY = new Date().toLocaleDateString("en-CA");
 const HORA = new Date().getHours();
@@ -440,6 +476,16 @@ function cambiarAnimo() {
   document.getElementById("paso1").style.display = "block";
 }
 
+function tipoDeHoy() {
+  const mood = moodDeHoy();
+  const r = Math.random();
+  // en día muy difícil, más chance de que le recuerde comer
+  const pComida = mood === "dificil" ? 0.2 : ESPECIAL.comida.prob;
+  if (r < ESPECIAL.cupon.prob) return "cupon";
+  if (r < ESPECIAL.cupon.prob + pComida) return "comida";
+  return "normal";
+}
+
 function elegir() {
   const esp = ESPECIALES[HOY] || ESPECIALES[HOY.slice(5)];
   if (esp && !vistos.includes(esp + "@" + HOY)) { vistos.push(esp + "@" + HOY); return esp; }
@@ -485,7 +531,7 @@ async function abrir() {
   } else {
     texto = elegir();
     repetido = vistos.includes(texto);
-    deHoy = { fecha: HOY, texto, extra: false };
+    deHoy = { fecha: HOY, texto, extra: false, tipo: tipoDeHoy() };
     vistos.push(texto); nuevo = true;
     escribir("frasco-vistos2", vistos); escribir("frasco-hoy2", deHoy);
   }
@@ -497,7 +543,12 @@ async function abrir() {
     mostrar(texto, repetido);
     cuentaRegresiva();
   }, 700);
-  if (nuevo) avisar("Abrio el frasco", `🫙 Le salió: "${texto}"`);
+  if (nuevo) {
+    const t = deHoy.tipo;
+    if (t === "cupon") avisar("Papelito dorado", "⭐ Le salió papelito dorado: puede girar la ruleta");
+    else if (t === "comida") avisar("Papelito de comida", "🍽️ Le salió el papelito que le recuerda comer algo");
+    else avisar("Abrio el frasco", `🫙 Le salió: "${texto}"`);
+  }
 }
 
 function mostrar(texto, repetido) {
@@ -506,20 +557,31 @@ function mostrar(texto, repetido) {
   wrap.style.display = "block";
   const note = wrap.querySelector(".note");
   note.style.animation = "none"; note.offsetHeight; note.style.animation = "";
-  document.getElementById("num").textContent = "PAPELITO N° " + String(leidos()).padStart(3, "0");
+  const tipo = deHoy.tipo || "normal";
+  const esp = ESPECIAL[tipo];
+  note.className = "note" + (tipo === "cupon" ? " dorado" : tipo === "comida" ? " rico" : "");
+  const btn = document.getElementById("espBtn");
+  if (esp) {
+    texto = esp.textos[Math.floor(Math.random() * esp.textos.length)];
+    btn.textContent = esp.boton; btn.href = esp.link; btn.style.display = "block";
+  } else {
+    btn.style.display = "none";
+  }
+  document.getElementById("num").textContent = esp
+    ? (tipo === "cupon" ? "PAPELITO DORADO ⭐" : "PAPELITO CON ANTOJO 🍽️")
+    : "PAPELITO N° " + String(leidos()).padStart(3, "0");
   document.getElementById("texto").textContent = texto;
   document.getElementById("repe").style.display = deHoy.extra ? "none" : "block";
-  document.getElementById("hambre").style.display = "flex";
   document.getElementById("repeTxt").textContent = repetido ? "Uy, este ya te había salido 🙈" : "¿Este ya te había salido? 🙈";
   actualizarProgreso();
-  llover(["💌","✨","🌸","💛"]);
+  llover(esp ? esp.emojis : ["💌","✨","🌸","💛"]);
 }
 
 // Si sale repetido, puede sacar otro (uno extra por día)
 function sacarOtro() {
   if (deHoy.extra) return;
   const texto = elegir();
-  deHoy = { fecha: HOY, texto, extra: true };
+  deHoy = { fecha: HOY, texto, extra: true, tipo: "normal" };
   vistos.push(texto);
   escribir("frasco-vistos2", vistos); escribir("frasco-hoy2", deHoy);
   mostrar(texto, false);
