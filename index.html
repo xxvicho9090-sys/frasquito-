@@ -85,6 +85,10 @@
   .send { display:flex; justify-content:space-between; align-items:center; margin-top:8px; }
   .send small { color:var(--soft); }
   .btn.sm { padding:9px 16px; margin:0; font-size:.9rem; }
+  .hambre { margin-top:14px; background:#fff; border-radius:18px; padding:12px 14px; display:flex;
+            align-items:center; justify-content:space-between; gap:10px; box-shadow:0 4px 14px #0000000f; }
+  .hambre span { font-weight:700; font-size:.92rem; }
+  .btn.sm { padding:9px 14px; margin:0; font-size:.88rem; text-decoration:none; display:inline-block; }
   .link { display:inline-block; margin-top:14px; color:var(--soft); font-size:.85rem; text-decoration:none; font-weight:600;
           background:#ffffffaa; padding:8px 14px; border-radius:99px; }
   .animo { animation:fadeUp .6s ease; }
@@ -177,6 +181,10 @@
       <br><button class="btn" id="otroBtn" onclick="sacarOtro()">Sacar otro papelito</button>
     </div>
   </div>
+  <div class="hambre" id="hambre" style="display:none">
+    <span>¿Te dio hambre?</span>
+    <a class="btn sm" href="comida.html">🍽️ Ver qué comer</a>
+  </div>
   <p class="next" id="next"></p>
   <button class="cambiar" id="cambiar" onclick="cambiarAnimo()">Cambiar cómo me siento</button>
   <br><a class="link" href="ruleta.html">🎡 Ruleta de cupones</a>
@@ -228,6 +236,24 @@ const MENSAJES = {
     "Las tormentas también se cansan 🌧️➡️🌤️",
     "Que un día sea malo no significa que tú lo seas.",
     "Guarda este papelito para cuando dudes de ti: vales mucho.",
+  ],
+  alegria: [
+    "Hoy va a estar bueno. No sé cómo lo sé, pero lo sé ✨",
+    "Si estás leyendo esto, ya empezaste bien el día 😊",
+    "Que hoy te pasen cosas chiquititas y buenas, de esas que te sacan una sonrisa sin querer.",
+    "Hoy te deseo: buena música, buena comida y alguien que te haga reír. Postulo a lo tercero 🙋",
+    "Pequeño recordatorio: eres bacán. Ya, sigue con tu día 😌",
+    "Que hoy te salga todo fácil. Y si no, que al menos te salga chistoso.",
+    "Hoy es un buen día para ser amable contigo misma.",
+    "Ojalá hoy te rías fuerte, de esas risas que no te puedes aguantar 😄",
+    "Que alguien te diga algo lindo hoy. Si no pasa, aquí tienes esto, que cuenta igual 💛",
+    "Mira por la ventana un ratito. El cielo de hoy es gratis y vale la pena 🌤️",
+    "Hoy tienes permiso de hacer algo solo porque te gusta. Autorizado por mí ✍️",
+    "Que el día te traiga una sorpresa buena. Te lo mando con todas mis ganas ✨",
+    "Hoy vas a estar bien. Y si no, mañana. Y yo voy a estar en las dos.",
+    "Dato bonito: el día que estás tú, es un día mejor que los otros.",
+    "Que te den ganas de cantar algo fuerte cuando nadie te escuche 🎶",
+    "Hoy puede pasar algo bueno. De verdad. Deja la puerta abierta por si acaso 🚪",
   ],
   carino: [
     "Hoy solo quería decirte que me cae muy bien hablar contigo.",
@@ -366,11 +392,11 @@ function moodDeHoy() {
 function categoriasDeHoy() {
   const mood = moodDeHoy();
   if (mood === "dificil") return ["compania"];
-  if (mood === "gris") return ["compania", "cuidados", "carino"];
+  if (mood === "gris") return ["compania", "cuidados", "carino", "alegria"];
   if (HORA >= 22 || HORA < 5) return ["noche", "carino", "compania"];
-  if (mood === "bueno") return ["carino", "tallas", "preguntas"];
-  if (mood === "piola") return ["carino", "tallas", "preguntas", "cuidados"];
-  return ["compania", "carino", "tallas", "preguntas", "cuidados"];
+  if (mood === "bueno") return ["alegria", "carino", "tallas", "preguntas"];
+  if (mood === "piola") return ["alegria", "carino", "tallas", "preguntas", "cuidados"];
+  return ["alegria", "compania", "carino", "tallas", "preguntas", "cuidados"];
 }
 
 // --- Paso 1: cómo se siente ---
@@ -483,6 +509,7 @@ function mostrar(texto, repetido) {
   document.getElementById("num").textContent = "PAPELITO N° " + String(leidos()).padStart(3, "0");
   document.getElementById("texto").textContent = texto;
   document.getElementById("repe").style.display = deHoy.extra ? "none" : "block";
+  document.getElementById("hambre").style.display = "flex";
   document.getElementById("repeTxt").textContent = repetido ? "Uy, este ya te había salido 🙈" : "¿Este ya te había salido? 🙈";
   actualizarProgreso();
   llover(["💌","✨","🌸","💛"]);

@@ -56,6 +56,11 @@
             display:flex; gap:10px; align-items:center; box-shadow:0 2px 10px #0000000d; font-size:.92rem; }
   .mis li span.em { font-size:1.4rem; }
   .mis li .cod { margin-left:auto; font-family:monospace; font-size:.75rem; color:var(--soft); }
+  .mis li small { display:block; font-size:.74rem; color:var(--soft); font-weight:600; }
+  .mis li.vencido { opacity:.45; }
+  .mis li.vencido .pr { text-decoration:line-through; }
+  .cupon .vence { display:block; margin-top:10px; font-weight:800; color:var(--accent); font-size:.85rem; }
+  .cupon .tope { color:var(--soft); font-size:.78rem; font-weight:700; letter-spacing:1px; }
   .link { display:inline-block; margin-top:18px; color:var(--soft); font-size:.85rem; text-decoration:none; font-weight:600;
           background:#ffffffaa; padding:8px 14px; border-radius:99px; }
   .float { position:fixed; bottom:-40px; font-size:1.5rem; animation:up linear forwards; z-index:1; pointer-events:none; }
@@ -65,7 +70,7 @@
 <body>
 <div class="card">
   <h1>Ruleta de Cupones</h1>
-  <p class="sub">Un giro por semana. Lo que salga, te lo debo 🎁</p>
+  <p class="sub">Un giro por semana. Lo que salga, te lo debo 🎁<br>Tienes 5 días para cobrarlo</p>
 
   <div class="wheel-wrap">
     <div class="pointer"></div>
@@ -80,7 +85,8 @@
     <div class="p" id="cP"></div>
     <div class="d" id="cD"></div>
     <div class="c" id="cC"></div>
-    <small>📸 Sácale captura y cóbramelo cuando quieras</small>
+    <span class="vence" id="cV"></span>
+    <small>📸 Sácale captura y mándamela para cobrarlo</small>
   </div>
 
   <div class="mis" id="mis" style="display:none">
@@ -97,24 +103,29 @@ const CANAL = "animo-644cea567218";   // mismo canal ntfy
 const DIAS_ENTRE_GIROS = 7;            // cada cuántos días puede girar
 
 const PREMIOS = [
-  { e: "🍔", p: "Una sushi burger",          d: "Invitada por mí, donde tú quieras",            c: "#ffc8dd" },
-  { e: "🍵", p: "Un tecito juntos",          d: "Yo lo preparo o yo lo invito, tú eliges",      c: "#caffbf" },
-  { e: "🍬", p: "Recarga del cajón",         d: "Relleno tu cajón de emergencia de dulces",     c: "#ffe5a3" },
-  { e: "🎁", p: "Un regalito sorpresa",      d: "No te digo qué es. Esa es la gracia",          c: "#bde0fe" },
-  { e: "🍫", p: "Dulces a elección",         d: "Tú haces la lista, yo los consigo",            c: "#e0c3fc" },
-  { e: "🎬", p: "Tarde de película",         d: "Tú eliges la película, yo pongo las cabritas", c: "#ffd6a5" },
-  { e: "📞", p: "Llamada sin apuro",         d: "Una conversa larga, sin mirar la hora",        c: "#a0e7e5" },
-  { e: "✉️", p: "Una carta a mano",          d: "Escrita por mí, con mi letra fea y todo",      c: "#fbc4ab" },
-  { e: "🌸", p: "Un paseo",                  d: "Al lugar que tú elijas, cuando tú quieras",    c: "#ffc8dd" },
-  { e: "🎶", p: "Una playlist para ti",      d: "Canciones elegidas pensando en ti",            c: "#caffbf" },
-  { e: "🍦", p: "Un helado",                 d: "Del sabor que quieras, doble si es día gris",  c: "#ffe5a3" },
-  { e: "⭐", p: "Comodín",                   d: "Pides lo que quieras (dentro de lo razonable 😅)", c: "#bde0fe" },
+  { e: "🍔", p: "Sushi burger",        d: "La pides a domicilio y la pago yo",            c: "#ffc8dd" },
+  { e: "🍬", p: "Recarga del cajón",   d: "Hazme la lista de dulces y te los mando",      c: "#ffe5a3" },
+  { e: "🎁", p: "Regalo sorpresa",     d: "Yo elijo, tú solo esperas que llegue",         c: "#bde0fe" },
+  { e: "🛒", p: "Pide lo que quieras", d: "Lo que se te antoje, hasta $20.000",           c: "#e0c3fc" },
+  { e: "🍟", p: "Antojo salado",       d: "Papas, completos, lo que sea, por delivery",   c: "#caffbf" },
+  { e: "🍰", p: "Postre a tu casa",    d: "Elige el que quieras y te llega",              c: "#ffd6a5" },
+  { e: "🧋", p: "Algo rico para tomar", d: "Un té especial, un café helado, lo que sea",  c: "#a0e7e5" },
+  { e: "🌸", p: "Flores a tu puerta",  d: "Sin motivo, solo porque sí",                   c: "#ffc8dd" },
+  { e: "🧴", p: "Algo para consentirte", d: "Skincare, esmalte, lo que te guste",         c: "#fbc4ab" },
+  { e: "🧸", p: "Algo calentito",      d: "Calcetines, peluche, algo suave y rico",       c: "#e0c3fc" },
+  { e: "📚", p: "Un libro o cuaderno", d: "El que tú elijas, hasta $20.000",              c: "#bde0fe" },
+  { e: "⭐", p: "Doble antojo",        d: "Dos cositas en vez de una. Te sacaste la buena", c: "#ffe5a3" },
 ];
+const TOPE = "Hasta $20.000";
+const DIAS_VENCE = 5;
 
 const N = PREMIOS.length, ANG = 360 / N;
 function leer(k, def) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : def; } catch { return def; } }
 function escribir(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} }
-let cupones = leer("ruleta-cupones", []);   // [{ i, codigo, fecha }]
+let cupones = leer("ruleta-cupones", []);   // [{ i, codigo, fecha, vence }]
+const DIA = 86400000;
+function fmt(ms) { return new Date(ms).toLocaleDateString("es-CL", { day: "numeric", month: "long" }); }
+function vigente(c) { return Date.now() < (c.vence || (c.fecha + DIAS_VENCE * DIA)); }
 
 // --- Dibujar la ruleta ---
 (function dibujar() {
@@ -153,10 +164,15 @@ function actualizarEstado() {
   lista.innerHTML = "";
   [...cupones].reverse().forEach(c => {
     const pr = PREMIOS[c.i]; if (!pr) return;
+    const ok = vigente(c);
     const li = document.createElement("li");
-    li.innerHTML = `<span class="em"></span><span class="pr"></span><span class="cod"></span>`;
+    if (!ok) li.className = "vencido";
+    li.innerHTML = `<span class="em"></span><span><b class="pr"></b><small class="ven"></small></span><span class="cod"></span>`;
     li.querySelector(".em").textContent = pr.e;
     li.querySelector(".pr").textContent = pr.p;
+    li.querySelector(".ven").textContent = ok
+      ? "Vence el " + fmt(c.vence || c.fecha + DIAS_VENCE * DIA)
+      : "Venció 😔";
     li.querySelector(".cod").textContent = c.codigo;
     lista.appendChild(li);
   });
@@ -182,18 +198,20 @@ function girar() {
 function ganar(i) {
   const pr = PREMIOS[i];
   const codigo = "CUP-" + Math.random().toString(36).slice(2, 7).toUpperCase();
-  cupones.push({ i, codigo, fecha: Date.now() });
+  const vence = Date.now() + DIAS_VENCE * DIA;
+  cupones.push({ i, codigo, fecha: Date.now(), vence });
   escribir("ruleta-cupones", cupones);
   document.getElementById("cE").textContent = pr.e;
   document.getElementById("cP").textContent = pr.p;
   document.getElementById("cD").textContent = pr.d;
+  document.getElementById("cV").textContent = `⏳ Tienes ${DIAS_VENCE} días: vence el ${fmt(vence)}`;
   document.getElementById("cC").textContent = codigo;
   document.getElementById("cupon").style.display = "block";
   girando = false;
   actualizarEstado();
   llover([pr.e, "✨", "🎉", "💛"]);
   fetch("https://ntfy.sh/" + CANAL, {
-    method: "POST", body: `🎡 Le salió: ${pr.e} ${pr.p} (${codigo})`,
+    method: "POST", body: `🎡 Le salió: ${pr.e} ${pr.p} (${codigo})\nVence el ${fmt(vence)}`,
     headers: { "Title": "Gano un cupon", "Tags": "gift" }
   }).catch(() => {});
 }
