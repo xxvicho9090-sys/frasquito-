@@ -70,7 +70,7 @@
 <body>
 <div class="card">
   <h1>Ruleta de Cupones</h1>
-  <p class="sub">Un giro por semana. Lo que salga, te lo debo 🎁<br>Tienes 5 días para cobrarlo</p>
+  <p class="sub">Cada ficha es un giro 🎟️ Lo que salga, te lo debo 🎁<br>Tienes 5 días para cobrarlo</p>
 
   <div class="wheel-wrap">
     <div class="pointer"></div>
@@ -94,13 +94,14 @@
     <ul id="lista"></ul>
   </div>
 
-  <a class="link" href="index.html">🫙 Volver al frasco</a>
+  <div style="margin-top:4px"><a class="link" href="index.html">🫙 Volver al frasco</a>
+  <a class="link" href="juegos.html">🎮 Sala de juegos</a></div>
 </div>
 
 <script>
 // ✏️ PERSONALIZA AQUÍ
 const CANAL = "animo-644cea567218";   // mismo canal ntfy
-const DIAS_ENTRE_GIROS = 7;            // cada cuántos días puede girar
+const META = 150;                      // puntos del juego por cada ficha (debe calzar con juegos.html)
 
 const PREMIOS = [
   { e: "🍔", p: "Sushi burger",        d: "La pides a domicilio y la pago yo",            c: "#ffc8dd" },
@@ -120,7 +121,7 @@ const TOPE = "Hasta $20.000";
 const DIAS_VENCE = 5;
 
 const N = PREMIOS.length, ANG = 360 / N;
-function leer(k, def) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : def; } catch { return def; } }
+function leer(k, def) { try { const v = localStorage.getItem(k); return v === null ? def : JSON.parse(v); } catch { return def; } }
 function escribir(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} }
 let cupones = leer("ruleta-cupones", []);   // [{ i, codigo, fecha, vence }]
 const DIA = 86400000;
@@ -145,20 +146,19 @@ function vigente(c) { return Date.now() < (c.vence || (c.fecha + DIAS_VENCE * DI
   svg.innerHTML = html;
 })();
 
-function diasDesdeUltimo() {
-  if (!cupones.length) return Infinity;
-  return (Date.now() - cupones[cupones.length - 1].fecha) / 86400000;
+function fichasDisponibles() {
+  return Math.floor(leer("juego-puntos", 0) / META) + leer("fichas-extra", 0) - leer("fichas-usadas", 0);
 }
 function actualizarEstado() {
   const hub = document.getElementById("hub"), hint = document.getElementById("hint");
-  const faltan = DIAS_ENTRE_GIROS - diasDesdeUltimo();
-  if (faltan > 0) {
-    hub.disabled = true;
-    const d = Math.floor(faltan), h = Math.ceil((faltan - d) * 24);
-    hint.textContent = `Próximo giro en ${d > 0 ? d + " días y " : ""}${h} horas ⏳`;
-  } else {
+  const f = fichasDisponibles();
+  const total = leer("juego-puntos", 0), falta = META - (total % META);
+  if (f > 0) {
     hub.disabled = false;
-    hint.textContent = "Toca GIRAR y cruza los dedos 🤞";
+    hint.innerHTML = `Tienes <b>${f}</b> ficha${f === 1 ? "" : "s"} 🎟️ — toca GIRAR y cruza los dedos 🤞`;
+  } else {
+    hub.disabled = true;
+    hint.innerHTML = `Te faltan <b>${falta}</b> puntos para una ficha.<br><a class="link" href="juegos.html">🎮 Ir a jugar</a>`;
   }
   const lista = document.getElementById("lista");
   lista.innerHTML = "";
@@ -182,8 +182,9 @@ actualizarEstado();
 
 let rot = 0, girando = false;
 function girar() {
-  if (girando || diasDesdeUltimo() < DIAS_ENTRE_GIROS) return;
+  if (girando || fichasDisponibles() < 1) return;
   girando = true;
+  escribir("fichas-usadas", leer("fichas-usadas", 0) + 1);
   document.getElementById("hub").disabled = true;
   document.getElementById("cupon").style.display = "none";
   const i = Math.floor(Math.random() * N);

@@ -199,6 +199,7 @@
   </div>
   <p class="next" id="next"></p>
   <button class="cambiar" id="cambiar" onclick="cambiarAnimo()">Cambiar cómo me siento</button>
+  <br><a class="link" href="juegos.html">🎮 Sala de juegos</a>
   </div>
 </div>
 
@@ -355,9 +356,9 @@ const ESPECIAL = {
     boton: "🎡 Ir a girar la ruleta",
     link: "ruleta.html",
     textos: [
-      "¡Papelito dorado! 🎉 Este te da derecho a girar la ruleta de cupones. Lo que salga, te lo debo.",
-      "Uy, te tocó el dorado. Eso significa premio: anda a girar la ruleta 🎁",
-      "Este papelito vale plata (mi plata). Gira la ruleta y cóbrame lo que salga 😅",
+      "¡Papelito dorado! 🎉 Te regalo una ficha: anda a girar la ruleta sin jugar nada.",
+      "Uy, te tocó el dorado. Ficha gratis para la ruleta 🎁 Aprovéchala.",
+      "Este papelito vale plata (mi plata). Te dejo una ficha para girar 😅",
     ],
   },
   comida: {
@@ -377,7 +378,7 @@ const COLORES = ["#ffc8dd","#bde0fe","#ffe5a3","#caffbf","#e0c3fc","#ffd6a5","#a
 const HOY = new Date().toLocaleDateString("en-CA");
 const HORA = new Date().getHours();
 
-function leer(k, def) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : def; } catch { return def; } }
+function leer(k, def) { try { const v = localStorage.getItem(k); return v === null ? def : JSON.parse(v); } catch { return def; } }
 function escribir(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} }
 let vistos = leer("frasco-vistos2", []);   // textos ya leídos
 let deHoy  = leer("frasco-hoy2", null);    // { fecha, texto, extra }
@@ -561,6 +562,10 @@ function mostrar(texto, repetido) {
   const esp = ESPECIAL[tipo];
   note.className = "note" + (tipo === "cupon" ? " dorado" : tipo === "comida" ? " rico" : "");
   const btn = document.getElementById("espBtn");
+  if (tipo === "cupon" && !deHoy.fichaDada) {
+    escribir("fichas-extra", leer("fichas-extra", 0) + 1);
+    deHoy.fichaDada = true; escribir("frasco-hoy2", deHoy);
+  }
   if (esp) {
     texto = esp.textos[Math.floor(Math.random() * esp.textos.length)];
     btn.textContent = esp.boton; btn.href = esp.link; btn.style.display = "block";
