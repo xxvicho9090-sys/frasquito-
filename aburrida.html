@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>¿Aburrida?</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;700&family=Nunito:wght@400;600;800;900&display=swap" rel="stylesheet">
+<style>
+  :root { --ink:#3b2f4a; --soft:#7a6b8a; --accent:#e8798f; --verde:#4caf72; }
+  * { box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; }
+  body {
+    min-height:100vh; display:block;
+    font-family:"Nunito", system-ui, sans-serif; color:var(--ink); padding:clamp(16px,6vh,56px) 16px;
+    background:
+      radial-gradient(circle at 15% 10%, #e5dcff 0, transparent 44%),
+      radial-gradient(circle at 88% 82%, #ffe0ea 0, transparent 46%),
+      radial-gradient(circle at 78% 8%, #d9f2ff 0, transparent 38%),
+      #faf7fd;
+    overflow-x:hidden;
+  }
+  .card { max-width:430px; width:100%; margin-inline:auto; text-align:center; position:relative; z-index:2; }
+  h1 { font-family:"Caveat", cursive; font-size:2.7rem; font-weight:700; line-height:1; }
+  .sub { color:var(--soft); margin:6px 0 16px; font-size:.95rem; line-height:1.5; }
+
+  .filtros { display:flex; gap:7px; justify-content:center; flex-wrap:wrap; margin-bottom:16px; }
+  .f { border:none; border-radius:99px; padding:9px 14px; font-family:inherit; font-size:.82rem; font-weight:800;
+       background:#ffffffcc; color:var(--soft); cursor:pointer; box-shadow:0 2px 10px #0000000d; transition:all .18s; }
+  .f.on { background:var(--accent); color:#fff; box-shadow:0 5px 14px #e8798f55; transform:translateY(-1px); }
+
+  .dado {
+    width:100%; border:none; border-radius:24px; padding:20px; font-family:inherit; font-size:1.15rem; font-weight:900;
+    background:linear-gradient(135deg,#f7a1b5,#b9a2f0); color:#fff; cursor:pointer; margin-bottom:16px;
+    box-shadow:0 10px 26px #b9a2f055; transition:transform .15s;
+  }
+  .dado:active { transform:scale(.97); }
+
+  .idea {
+    display:none; background:#fff; border-radius:26px; padding:26px 22px 22px; position:relative;
+    box-shadow:0 16px 40px #3b2f4a1f; animation:entra .5s cubic-bezier(.2,1.3,.4,1); text-align:left;
+  }
+  .idea .top { display:flex; align-items:center; gap:12px; margin-bottom:10px; }
+  .idea .em { font-size:2.6rem; line-height:1; }
+  .idea h2 { font-family:"Caveat", cursive; font-size:1.95rem; line-height:1.05; }
+  .idea .tag { display:inline-block; background:#f6eef3; color:var(--soft); border-radius:99px;
+               padding:4px 11px; font-size:.7rem; font-weight:900; letter-spacing:1px; margin-top:3px; }
+  .idea p { color:#55475f; font-size:.97rem; line-height:1.5; margin-top:4px; }
+  @keyframes entra { from { transform:translateY(16px) scale(.96); opacity:0; } }
+
+  .acciones { display:flex; gap:9px; flex-wrap:wrap; margin-top:16px; }
+  .btn { flex:1; min-width:120px; border:none; border-radius:15px; padding:13px 16px; font-family:inherit;
+         font-weight:900; font-size:.93rem; cursor:pointer; background:var(--accent); color:#fff;
+         box-shadow:0 6px 16px #e8798f55; transition:transform .15s; text-decoration:none; text-align:center; }
+  .btn.alt { background:#f4eef6; color:var(--ink); box-shadow:none; }
+  .btn:active { transform:scale(.96); }
+  .btn.listo { background:#cfe8d8; color:#2e6b48; box-shadow:none; }
+
+  .hechas { margin-top:18px; color:var(--soft); font-size:.85rem; font-weight:800; }
+  .links { margin-top:18px; display:flex; gap:8px; justify-content:center; flex-wrap:wrap; }
+  .link { color:var(--soft); font-size:.82rem; text-decoration:none; font-weight:800;
+          background:#ffffffaa; padding:9px 15px; border-radius:99px; }
+  .float { position:fixed; bottom:-40px; font-size:1.5rem; animation:up linear forwards; z-index:1; pointer-events:none; }
+  @keyframes up { to { transform:translateY(-115vh) rotate(25deg); opacity:0; } }
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>¿Aburrida?</h1>
+  <p class="sub">Toca el botón y te doy algo que hacer.<br>Si no te tinca, pides otra 😌</p>
+
+  <div class="filtros" id="filtros"></div>
+  <button class="dado" id="dado" onclick="sortear()">🎲 Dame una idea</button>
+
+  <div class="idea" id="idea">
+    <div class="top">
+      <span class="em" id="iEm"></span>
+      <div><h2 id="iTit"></h2><span class="tag" id="iTag"></span></div>
+    </div>
+    <p id="iTxt"></p>
+    <div class="acciones" id="iAcc"></div>
+  </div>
+
+  <p class="hechas" id="hechas"></p>
+
+  <div class="links">
+    <a class="link" href="index.html">🫙 Frasco</a>
+    <a class="link" href="juegos.html">🎮 Juegos</a>
+    <a class="link" href="comida.html">🍽️ Qué comer</a>
+  </div>
+</div>
+
+<script>
+// ✏️ PERSONALIZA AQUÍ — todo es para ella sola
+// tipo: rapido | creativo | mimos | tonto | cabeza
+const IDEAS = [
+  // ── Rapidito (2-5 min) ──
+  { t:"rapido", e:"🪟", n:"Mira por la ventana 2 minutos", d:"Sin celular. Solo mirar lo que pasa afuera. Suena tonto, pero despeja." },
+  { t:"rapido", e:"🧃", n:"Prepárate algo rico", d:"Un té, un jugo, lo que haya. Y tómatelo sentada, sin hacer nada más al mismo tiempo." },
+  { t:"rapido", e:"🧹", n:"Ordena una cosa chiquitita", d:"Un cajón, la mesita de noche. Solo una. Se siente mejor de lo que suena." },
+  { t:"rapido", e:"💆", n:"Estírate como gato", d:"Brazos arriba, cuello a los lados, espalda. Treinta segundos y listo." },
+  { t:"rapido", e:"🧦", n:"Ponte ropa cómoda", d:"La más suelta que tengas. El día cambia harto según lo que uno trae puesto." },
+  { t:"rapido", e:"🌬️", n:"Abre la ventana", d:"Aire nuevo por dos minutos. Es gratis y funciona." },
+  { t:"rapido", e:"📷", n:"Revisa fotos viejas", d:"Anda a un año cualquiera de tu galería. Siempre hay algo que da risa o vergüenza ajena." },
+  { t:"rapido", e:"💧", n:"Agua y lávate la cara", d:"El reinicio más barato que existe. En serio, ayuda." },
+  { t:"rapido", e:"🎶", n:"Una canción a todo volumen", d:"Esa que te sabes entera. Cántala sin que te importe cómo suene." },
+  { t:"rapido", e:"🚪", n:"Sal al patio o a la puerta", d:"Cinco minutos afuera. No tienes que ir a ningún lado, solo salir un poquito." },
+
+  // ── Creativo ──
+  { t:"creativo", e:"✏️", n:"Dibuja feo a propósito", d:"Lo primero que veas, pero mal hecho adrede. Mientras peor quede, más entretenido." },
+  { t:"creativo", e:"📒", n:"Haz una lista rara", d:"Top 5 de olores que te gustan, o de comidas sobrevaloradas. Las listas tontas son terapia." },
+  { t:"creativo", e:"🎵", n:"Arma una playlist", d:"Cinco canciones para un ánimo específico y ponle un nombre ridículo." },
+  { t:"creativo", e:"💅", n:"Píntate las uñas", d:"Del color que sea, aunque te quede chueco. Es entretenido y lo ves toda la semana." },
+  { t:"creativo", e:"📖", n:"Escribe media página", d:"De lo que sea, de lo que estás pensando ahora. No tiene que leerlo nadie nunca." },
+  { t:"creativo", e:"🏠", n:"Cambia algo de lugar", d:"Mueve un mueble, cambia un cuadro. La pieza se siente nueva por un rato." },
+  { t:"creativo", e:"🍳", n:"Inventa algo de comer", d:"Mezcla cosas raras que haya en la casa. Si sale mal, igual es anécdota." },
+  { t:"creativo", e:"🧶", n:"Aprende algo inútil", d:"Un truco de cartas, un nudo, girar un lápiz. Busca un video y practícalo." },
+  { t:"creativo", e:"🖼️", n:"Cambia tu fondo de pantalla", d:"Busca uno que te guste de verdad. Lo vas a ver mil veces al día." },
+  { t:"creativo", e:"📦", n:"Mira qué hay en ese cajón", d:"Ese donde se acumula todo. Vas a encontrar cosas que ni te acordabas." },
+
+  // ── Mimos (cuidarse) ──
+  { t:"mimos", e:"🛁", n:"Ducha larga", d:"Con el agua lo más rica que aguantes. Después ropa cómoda y a echarte." },
+  { t:"mimos", e:"🧴", n:"Rutina de skincare lenta", d:"Aunque sea solo crema. Hazlo despacio, como si fuera un ritual tuyo." },
+  { t:"mimos", e:"🛏️", n:"Cama recién hecha", d:"Cámbiate las sábanas o solo estíralas. Meterse a una cama ordenada es otra cosa." },
+  { t:"mimos", e:"🎧", n:"Una canción con los ojos cerrados", d:"Acostada, sin hacer nada más. Solo escuchar, una entera." },
+  { t:"mimos", e:"😴", n:"Siesta sin culpa", d:"Veinte minutos. Pon alarma si quieres. Descansar no es flojera." },
+  { t:"mimos", e:"🕯️", n:"Baja las luces", d:"Luz cálida y menos pantalla. Tu cabeza te lo va a agradecer." },
+  { t:"mimos", e:"📺", n:"Repite algo que ya viste", d:"Nada nuevo, nada que pensar. Esa serie que te sabes de memoria." },
+  { t:"mimos", e:"🍫", n:"Date un gusto del cajón", d:"Lo que tengas guardado. Sin negociar contigo misma, sin culpa." },
+  { t:"mimos", e:"🧘", n:"Respira 10 veces lento", d:"Inhala contando 4, aguanta 4, bota 4. Diez veces. Es poquito y baja el ruido." },
+  { t:"mimos", e:"🤲", n:"Masajea tus manos", d:"Con crema, dedo por dedo. Nadie se acuerda de las manos y se siente increíble." },
+
+  // ── Tonterías ──
+  { t:"tonto", e:"🦦", n:"Videos de nutrias", d:"En serio. Búscalos. Diez minutos de nutrias arreglan cualquier tarde." },
+  { t:"tonto", e:"🗺️", n:"Viaja en Street View", d:"Elige un país al azar y camina por una calle cualquiera. Es raro y entretenido." },
+  { t:"tonto", e:"🔤", n:"Tradúcete mil veces", d:"Escribe una frase y tradúcela de idioma en idioma hasta que quede ridícula." },
+  { t:"tonto", e:"🧪", n:"Dato inútil del día", d:"Busca un dato random en internet. Vas a quedar con uno nuevo para toda la vida." },
+  { t:"tonto", e:"🎭", n:"Ponle voz a la gente", d:"Mira la tele sin sonido e inventa los diálogos. Funciona mejor con teleseries." },
+  { t:"tonto", e:"🔮", n:"Test tonto de internet", d:"'¿Qué tipo de pan eres?'. Hazlo y tómatelo en serio, que es importante." },
+  { t:"tonto", e:"🏴‍☠️", n:"Aprende una mala palabra en otro idioma", d:"Conocimiento esencial para la vida. Nadie te lo va a quitar." },
+  { t:"tonto", e:"🐱", n:"Mira animales en adopción", d:"No para adoptar (o sí). Solo para ver caritas un rato." },
+  { t:"tonto", e:"🎤", n:"Karaoke tú sola", d:"Busca la versión karaoke de tu canción y cántala completa. Nadie te escucha." },
+  { t:"tonto", e:"📜", n:"Lee tus mensajes antiguos", d:"De hace años, con quien sea. Mezcla de risa y vergüenza garantizada." },
+
+  // ── Para la cabeza ──
+  { t:"cabeza", e:"📚", n:"Lee una página", d:"Una sola. Si te enganchas, sigue. Si no, ya leíste una página y eso cuenta." },
+  { t:"cabeza", e:"🎬", n:"Un documental corto", d:"De algo que no sepas nada. Veinte minutos y aprendiste algo nuevo." },
+  { t:"cabeza", e:"🧩", n:"Un crucigrama o sudoku", d:"De los fáciles. Es de esas cosas que te sacan de la cabeza un rato." },
+  { t:"cabeza", e:"🌍", n:"Elige un país y averigua", d:"Al azar. Cómo se vive, qué comen, cómo suena el idioma." },
+  { t:"cabeza", e:"📝", n:"Escribe tres cosas buenas", d:"De hoy o de la semana. Por chiquititas que sean. Sirve más de lo que parece." },
+  { t:"cabeza", e:"💭", n:"Planea algo chiquitito", d:"Algo que quieras hacer este mes. No tiene que ser grande ni caro." },
+  { t:"cabeza", e:"🎓", n:"Un video de 10 minutos", d:"De algo que siempre te dio curiosidad y nunca buscaste." },
+];
+
+const FILTROS = [
+  { id:"todo", n:"Todo 🎲" }, { id:"rapido", n:"2 minutos ⚡" }, { id:"mimos", n:"Mimos 🫶" },
+  { id:"creativo", n:"Creativo 🎨" }, { id:"tonto", n:"Tonterías 😂" }, { id:"cabeza", n:"Cabeza 🧠" },
+];
+const ETIQUETAS = { rapido:"RAPIDITO", creativo:"CREATIVO", mimos:"PARA TI", tonto:"TONTERA", cabeza:"PARA LA CABEZA" };
+
+let filtro = "todo", ultima = null, actual = null;
+function leer(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch { return d; } }
+function escribir(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} }
+
+(function pintarFiltros() {
+  const c = document.getElementById("filtros");
+  FILTROS.forEach(f => {
+    const b = document.createElement("button");
+    b.className = "f" + (f.id === filtro ? " on" : "");
+    b.textContent = f.n;
+    b.onclick = () => { filtro = f.id; [...c.children].forEach(x => x.classList.remove("on")); b.classList.add("on"); sortear(); };
+    c.appendChild(b);
+  });
+  contador();
+})();
+
+function contador() {
+  const n = leer("aburrida-hechas", []).length;
+  document.getElementById("hechas").textContent = n ? `Llevas ${n} cosa${n === 1 ? "" : "s"} hecha${n === 1 ? "" : "s"} desde acá 🌱` : "";
+}
+
+function sortear() {
+  const pool = IDEAS.filter(i => filtro === "todo" || i.t === filtro);
+  let idea; do { idea = pool[Math.floor(Math.random() * pool.length)]; } while (pool.length > 1 && idea.n === ultima);
+  ultima = idea.n; actual = idea;
+  document.getElementById("iEm").textContent = idea.e;
+  document.getElementById("iTit").textContent = idea.n;
+  document.getElementById("iTag").textContent = ETIQUETAS[idea.t];
+  document.getElementById("iTxt").textContent = idea.d;
+
+  const acc = document.getElementById("iAcc"); acc.innerHTML = "";
+  const hecho = document.createElement("button");
+  hecho.className = "btn"; hecho.textContent = "✅ Lo hice";
+  hecho.onclick = () => {
+    const l = leer("aburrida-hechas", []); l.push(idea.n); escribir("aburrida-hechas", l);
+    hecho.className = "btn listo"; hecho.textContent = "¡Bien ahí! 🌱"; hecho.disabled = true;
+    contador(); llover([idea.e, "✨", "💛"]);
+  };
+  acc.appendChild(hecho);
+
+  const otra = document.createElement("button");
+  otra.className = "btn alt"; otra.textContent = "🎲 Otra idea";
+  otra.onclick = sortear;
+  acc.appendChild(otra);
+
+  const d = document.getElementById("idea");
+  d.style.display = "block";
+  d.style.animation = "none"; d.offsetHeight; d.style.animation = "";
+  document.getElementById("dado").textContent = "🎲 Dame otra";
+}
+
+function llover(emojis) {
+  for (let k = 0; k < 16; k++) {
+    const e = document.createElement("div");
+    e.className = "float";
+    e.textContent = emojis[k % emojis.length];
+    e.style.left = Math.random() * 100 + "vw";
+    e.style.animationDuration = 3 + Math.random() * 3 + "s";
+    e.style.animationDelay = Math.random() * 1.2 + "s";
+    document.body.appendChild(e);
+    setTimeout(() => e.remove(), 7000);
+  }
+}
+</script>
+</body>
+</html>
