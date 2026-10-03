@@ -2,7 +2,8 @@
    SALA DE JUEGOS — motor común + 10 juegos
    ✏️ PERSONALIZA: META (puntos por ficha) y CANAL (ntfy)
    ============================================================ */
-const META = 150;
+const META = 400;   // puntos para ganar una ficha (1 giro de ruleta)
+const TOPE = 110;   // máximo de puntos que puede dar UNA partida
 const CANAL = "animo-644cea567218";
 
 /* ---------- Guardado ---------- */
@@ -46,6 +47,15 @@ document.head.insertAdjacentHTML("beforeend", `<style>
                justify-content:center; font-size:1.7rem; transition:transform .12s; }
   .g2048 .cl.nv { animation:aparecer .22s cubic-bezier(.2,1.5,.4,1); }
   @keyframes aparecer { from { transform:scale(.3); opacity:0; } }
+  .dpad { position:absolute; bottom:10px; left:50%; transform:translateX(-50%); display:grid;
+          grid-template-columns:repeat(3,60px); grid-template-rows:repeat(2,52px); gap:7px; z-index:4; opacity:.92; }
+  .dpad button { border:none; border-radius:14px; background:#ffffffdd; font-size:1.3rem; color:#3b2f4a;
+                 box-shadow:0 3px 10px #0000001a; cursor:pointer; touch-action:none; }
+  .dpad button:active { background:#ffd6e2; transform:scale(.94); }
+  .dpad .ar { grid-column:2; grid-row:1; }
+  .dpad .iz { grid-column:1; grid-row:2; }
+  .dpad .ab { grid-column:2; grid-row:2; }
+  .dpad .de { grid-column:3; grid-row:2; }
   .pista { position:absolute; bottom:10px; left:0; right:0; text-align:center; font-size:.78rem;
            color:#7a6b8a; font-weight:800; pointer-events:none; }
 </style>`);
@@ -158,15 +168,23 @@ E.zona.addEventListener("pointermove", e => {
   e.preventDefault();
   const c = coords(e); E.puntero.x = c.x; E.puntero.y = c.y; E.puntero.movido = true;
   E.juego && E.juego.tocar && E.juego.tocar(c.x, c.y, "mover");
+  // deslizar: se detecta apenas pasa el umbral, sin esperar a soltar
+  if (ini && E.juego && E.juego.deslizar) {
+    const dx = c.x - ini.x, dy = c.y - ini.y;
+    if (Math.hypot(dx, dy) > 22) {
+      E.juego.deslizar(Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? "der" : "izq") : (dy > 0 ? "abajo" : "arriba"));
+      ini = { ...c, t: Date.now(), usado: true };   // el mismo dedo puede encadenar varios giros
+    }
+  }
 }, { passive: false });
 addEventListener("pointerup", e => {
   if (!E.corriendo || E.pausa) return;
   E.puntero.abajo = false;
   const c = coords(e);
   E.juego && E.juego.tocar && E.juego.tocar(c.x, c.y, "arriba");
-  if (ini && E.juego && E.juego.deslizar) {
+  if (ini && !ini.usado && E.juego && E.juego.deslizar) {
     const dx = c.x - ini.x, dy = c.y - ini.y;
-    if (Math.hypot(dx, dy) > 26 && Date.now() - ini.t < 700)
+    if (Math.hypot(dx, dy) > 18)
       E.juego.deslizar(Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? "der" : "izq") : (dy > 0 ? "abajo" : "arriba"));
   }
   ini = null;
@@ -241,7 +259,7 @@ function terminar() {
   limpiarTimers();
   E.juego.destroy && E.juego.destroy();
   api.tono(330, .12, "triangle"); luego(() => api.tono(262, .2, "triangle"), 110);
-  const puntos = Math.round(E.score * (E.juego.factor || 1));
+  const puntos = Math.min(TOPE, Math.round(E.score * (E.juego.factor || 1)));
   const rec = S.leer("rec-" + E.juego.id, 0);
   const nuevoRec = E.score > rec;
   if (nuevoRec) S.escribir("rec-" + E.juego.id, E.score);
@@ -259,7 +277,7 @@ function terminar() {
 
   ovMostrar(
     ganadas > 0 ? "¡Ganaste una ficha! 🎟️" : nuevoRec ? "¡Nuevo récord! 🏆" : "Se acabó",
-    `<span class="pts">${puntos}<small>PUNTOS</small></span>` +
+    `<span class="pts">${puntos}<small>${puntos >= TOPE ? "PUNTOS (TOPE)" : "PUNTOS"}</small></span>` +
     (ganadas > 0
       ? `Tienes <b>${ahora}</b> giro${ahora === 1 ? "" : "s"} de ruleta esperándote 🎡`
       : `Llevas <b>${total}</b> puntos en total.<br>Te faltan <b>${falta}</b> para la próxima ficha 🎟️`),
@@ -319,7 +337,7 @@ const JUEGOS = [];
 
 /* 1 ── Atrapa Dulces ─────────────────────────────────────── */
 JUEGOS.push({
-  id: "atrapa", nombre: "Atrapa Dulces", emoji: "🍬", tipo: "canvas", tiempo: 45, factor: 1,
+  id: "atrapa", nombre: "Atrapa Dulces", emoji: "🍬", tipo: "canvas", tiempo: 45, factor: 0.22,
   color: "#ffd9e4", desc: "Mueve la canasta", fondo: "linear-gradient(#fff6fa,#ffe8f1)",
   ayuda: "Mueve el dedo para atrapar los dulces 🍬<br>Esquiva las verduras 🥦 (hoy no, gracias)",
   init() {
@@ -337,7 +355,7 @@ JUEGOS.push({
       const [em, pts] = malo ? [["🥦", -5], ["🥬", -5], ["🧅", -5]][Math.floor(Math.random() * 3)]
         : estrella ? ["⭐", 15] : buenos[Math.floor(Math.random() * buenos.length)];
       this.items.push({ em, pts, malo, x: 26 + Math.random() * (E.W - 52), y: -26,
-        v: 130 + Math.random() * 90 + (45 - E.tiempo) * 2.4, g: (Math.random() - .5) * 3 });
+        v: 150 + Math.random() * 100 + (45 - E.tiempo) * 3.2, g: (Math.random() - .5) * 3 });
     }
     const suelo = E.H - 52;
     for (const it of this.items) {
@@ -347,7 +365,7 @@ JUEGOS.push({
         if (it.malo) { this.racha = 0; api.sumar(it.pts, it.x, it.y); api.tono(160, .12, "square"); api.sacudir(7); api.vibrar(40); }
         else {
           this.racha++;
-          api.sumar(it.pts + (this.racha >= 5 ? 3 : 0), it.x, it.y);
+          api.sumar(it.pts + (this.racha >= 8 ? 3 : 0), it.x, it.y);
           api.chispas(it.x, it.y, "#f7a1b5", 9); api.tono(620 + this.racha * 25, .07);
         }
       }
@@ -362,7 +380,7 @@ JUEGOS.push({
     }
     const suelo = E.H - 52;
     c.font = "46px serif"; c.fillText("🧺", this.cesta, suelo);
-    if (this.racha >= 5) {
+    if (this.racha >= 8) {
       c.font = "900 13px Nunito, sans-serif"; c.fillStyle = "#e0a92b";
       c.fillText("🔥 racha x" + this.racha, this.cesta, suelo + 30);
     }
@@ -371,7 +389,7 @@ JUEGOS.push({
 
 /* 2 ── Memoria ───────────────────────────────────────────── */
 JUEGOS.push({
-  id: "memoria", nombre: "Memoria", emoji: "🧠", tipo: "dom", tiempo: 70, factor: 0.5,
+  id: "memoria", nombre: "Memoria", emoji: "🧠", tipo: "dom", tiempo: 60, factor: 0.22,
   color: "#dfe8ff", desc: "Encuentra los pares", fondo: "linear-gradient(#f7faff,#e9f0ff)",
   ayuda: "Da vuelta las cartas y encuentra los 8 pares 🍬<br>Mientras menos intentos, más puntos",
   init() {
@@ -387,7 +405,7 @@ JUEGOS.push({
       d.onclick = () => this.voltear(d);
       cont.appendChild(d);
     });
-    api.hud("🍬 0", "⏱️ 70", "🏆 " + S.leer("rec-memoria", 0));
+    api.hud("🍬 0", "⏱️ 60", "🏆 " + S.leer("rec-memoria", 0));
   },
   voltear(d) {
     if (this.bloqueo || d.classList.contains("v") || !E.corriendo) return;
@@ -416,17 +434,17 @@ JUEGOS.push({
 
 /* 3 ── Burbujas ──────────────────────────────────────────── */
 JUEGOS.push({
-  id: "burbujas", nombre: "Burbujas", emoji: "🫧", tipo: "canvas", tiempo: 40, factor: 0.5,
+  id: "burbujas", nombre: "Burbujas", emoji: "🫧", tipo: "canvas", tiempo: 40, factor: 0.09,
   color: "#d9f0ff", desc: "Revienta antes que escapen", fondo: "linear-gradient(#eef8ff,#dceeff)",
   ayuda: "Toca las burbujas antes de que se escapen 🫧<br>Las rojas 💣 te quitan puntos, no las toques",
   init() { this.bs = []; this.spawn = 0; },
   update(dt) {
     this.spawn -= dt;
     if (this.spawn <= 0) {
-      this.spawn = .32 + Math.random() * .25;
-      const mala = Math.random() < .18;
+      this.spawn = .3 + Math.random() * .22;
+      const mala = Math.random() < .26;
       this.bs.push({ x: 30 + Math.random() * (E.W - 60), y: E.H + 30, r: 20 + Math.random() * 16,
-        v: 60 + Math.random() * 70, mala, fase: Math.random() * 6, hue: Math.random() * 60 + 300 });
+        v: 75 + Math.random() * 85, mala, fase: Math.random() * 6, hue: Math.random() * 60 + 300 });
     }
     for (const b of this.bs) { b.y -= b.v * dt; b.fase += dt * 2; b.x += Math.sin(b.fase) * .6; }
     this.bs = this.bs.filter(b => b.y > -40 && !b.pop);
@@ -461,21 +479,34 @@ JUEGOS.push({
 
 /* 4 ── Serpiente ─────────────────────────────────────────── */
 JUEGOS.push({
-  id: "snake", nombre: "Gusanito", emoji: "🐛", tipo: "canvas", tiempo: null, factor: 1,
+  id: "snake", nombre: "Gusanito", emoji: "🐛", tipo: "canvas", tiempo: null, factor: 0.8,
   color: "#dff6e3", desc: "Come sin chocar", fondo: "linear-gradient(#f3fff6,#e2f7e8)", medio: "🐛",
-  ayuda: "Desliza el dedo para mover al gusanito 🐛<br>Come dulces y no choques contigo misma",
+  ayuda: "Mueve al gusanito con las flechas o deslizando 🐛<br>Come dulces y no choques contigo misma",
   init() {
-    this.cel = Math.floor(Math.min(E.W, E.H) / 15);
-    this.cols = Math.floor(E.W / this.cel); this.filas = Math.floor(E.H / this.cel);
-    this.ox = (E.W - this.cols * this.cel) / 2; this.oy = (E.H - this.filas * this.cel) / 2;
+    const alto = E.H - 112;                       // espacio para las flechas
+    this.cel = Math.floor(Math.min(E.W, alto) / 14);
+    this.cols = Math.floor(E.W / this.cel); this.filas = Math.floor(alto / this.cel);
+    this.ox = (E.W - this.cols * this.cel) / 2; this.oy = 8;
     this.s = [{ x: 4, y: Math.floor(this.filas / 2) }]; this.d = { x: 1, y: 0 }; this.cola = [];
-    this.acum = 0; this.vel = .16; this.crecer = 2; this.poner();
+    this.acum = 0; this.vel = .17; this.crecer = 2; this.poner();
+    // flechas en pantalla: más fáciles que deslizar
+    const d = document.createElement("div");
+    d.className = "dpad";
+    d.innerHTML = `<button class="ar">▲</button><button class="iz">◀</button><button class="ab">▼</button><button class="de">▶</button>`;
+    const m = { ar: "arriba", iz: "izq", ab: "abajo", de: "der" };
+    d.querySelectorAll("button").forEach(b => {
+      const dir = m[b.className];
+      b.addEventListener("pointerdown", e => { e.preventDefault(); e.stopPropagation(); this.deslizar(dir); api.tono(420, .04); });
+    });
+    E.zona.appendChild(d); this.dpad = d;
   },
+  destroy() { if (this.dpad) { this.dpad.remove(); this.dpad = null; } },
   resize() {
     const antes = { cols: this.cols, filas: this.filas };
-    this.cel = Math.floor(Math.min(E.W, E.H) / 15);
-    this.cols = Math.floor(E.W / this.cel); this.filas = Math.floor(E.H / this.cel);
-    this.ox = (E.W - this.cols * this.cel) / 2; this.oy = (E.H - this.filas * this.cel) / 2;
+    const alto = E.H - 112;
+    this.cel = Math.floor(Math.min(E.W, alto) / 14);
+    this.cols = Math.floor(E.W / this.cel); this.filas = Math.floor(alto / this.cel);
+    this.ox = (E.W - this.cols * this.cel) / 2; this.oy = 8;
     if (!antes.cols) return;
     this.s = this.s.map(p => ({ x: Math.min(p.x, this.cols - 1), y: Math.min(p.y, this.filas - 1) }));
     this.fruta = { x: Math.min(this.fruta.x, this.cols - 1), y: Math.min(this.fruta.y, this.filas - 1) };
@@ -528,7 +559,7 @@ JUEGOS.push({
 
 /* 5 ── Torre ─────────────────────────────────────────────── */
 JUEGOS.push({
-  id: "torre", nombre: "Torre Dulce", emoji: "🧁", tipo: "canvas", tiempo: null, factor: 0.8,
+  id: "torre", nombre: "Torre Dulce", emoji: "🧁", tipo: "canvas", tiempo: null, factor: 0.3,
   color: "#ffe9cf", desc: "Apila sin fallar", fondo: "linear-gradient(#fffaf2,#ffeedb)", medio: "🧁",
   ayuda: "Toca la pantalla para soltar el bloque 🧁<br>Apílalos lo más derecho posible",
   init() {
@@ -582,7 +613,7 @@ JUEGOS.push({
 
 /* 6 ── Simón ─────────────────────────────────────────────── */
 JUEGOS.push({
-  id: "simon", nombre: "Repite", emoji: "🎵", tipo: "dom", tiempo: null, factor: 0.4,
+  id: "simon", nombre: "Repite", emoji: "🎵", tipo: "dom", tiempo: null, factor: 0.3,
   color: "#ecdcff", desc: "Memoriza la secuencia", fondo: "linear-gradient(#faf5ff,#efe4ff)", medio: "🎵",
   ayuda: "Mira la secuencia y repítela 🎵<br>Cada ronda se agrega un color más",
   init() {
@@ -644,16 +675,16 @@ JUEGOS.push({
 
 /* 7 ── Esquiva ───────────────────────────────────────────── */
 JUEGOS.push({
-  id: "esquiva", nombre: "Esquiva", emoji: "🏃‍♀️", tipo: "canvas", tiempo: null, factor: 1,
+  id: "esquiva", nombre: "Esquiva", emoji: "🏃‍♀️", tipo: "canvas", tiempo: null, factor: 0.45,
   color: "#ffe0e0", desc: "No choques", fondo: "linear-gradient(#fff5f5,#ffe6ea)", medio: "🏃‍♀️",
   ayuda: "Mueve el dedo para esquivar 🪨<br>Junta los corazones ❤️ y aguanta lo más posible",
   init() {
-    this.x = E.W / 2; this.obs = []; this.spawn = 0; this.vel = 190; this.dist = 0; this.linea = 0;
+    this.x = E.W / 2; this.obs = []; this.spawn = 0; this.vel = 210; this.dist = 0; this.linea = 0;
   },
   update(dt) {
     if (E.puntero.movido) this.x += (E.puntero.x - this.x) * Math.min(1, dt * 12);
     this.x = Math.max(20, Math.min(E.W - 20, this.x));
-    this.vel += dt * 7; this.dist += dt; this.linea = (this.linea + this.vel * dt) % 40;
+    this.vel += dt * 11; this.dist += dt; this.linea = (this.linea + this.vel * dt) % 40;
     this.spawn -= dt;
     if (this.spawn <= 0) {
       this.spawn = .42 + Math.random() * .25;
@@ -688,7 +719,7 @@ JUEGOS.push({
 
 /* 8 ── Dulces 2048 ───────────────────────────────────────── */
 JUEGOS.push({
-  id: "dulces", nombre: "Junta Dulces", emoji: "🍭", tipo: "dom", tiempo: null, factor: 0.5,
+  id: "dulces", nombre: "Junta Dulces", emoji: "🍭", tipo: "dom", tiempo: null, factor: 0.09,
   color: "#ffe5f0", desc: "Une los iguales", fondo: "linear-gradient(#fff7fb,#ffeaf4)", medio: "🍭",
   ayuda: "Desliza para juntar dulces iguales 🍬+🍬=🍭<br>Se acaba cuando no quedan movimientos",
   init() {
@@ -757,7 +788,7 @@ JUEGOS.push({
 
 /* 9 ── Encuentra el distinto ─────────────────────────────── */
 JUEGOS.push({
-  id: "distinto", nombre: "El Distinto", emoji: "🔍", tipo: "dom", tiempo: 45, factor: 0.5,
+  id: "distinto", nombre: "El Distinto", emoji: "🔍", tipo: "dom", tiempo: 40, factor: 0.2,
   color: "#e4f7e8", desc: "Ojo rápido", fondo: "linear-gradient(#f6fff8,#e6f7ea)",
   ayuda: "Uno de los dulces es distinto a los demás 🔍<br>Tócalo antes de que se acabe el tiempo",
   init() { this.nivel = 0; this.ronda(); },
@@ -788,14 +819,14 @@ JUEGOS.push({
     } else {
       api.sumar(-5); api.tono(160, .14, "square"); api.vibrar(60);
       bt.classList.add("mal"); setTimeout(() => bt.classList.remove("mal"), 350);
-      E.tiempo = Math.max(1, E.tiempo - 2);
+      E.tiempo = Math.max(1, E.tiempo - 3);
     }
   },
 });
 
 /* 10 ── Rebota ───────────────────────────────────────────── */
 JUEGOS.push({
-  id: "rebota", nombre: "No Se Cae", emoji: "🎈", tipo: "canvas", tiempo: null, factor: 0.8,
+  id: "rebota", nombre: "No Se Cae", emoji: "🎈", tipo: "canvas", tiempo: null, factor: 0.16,
   color: "#fff0d6", desc: "Que no toque el suelo", fondo: "linear-gradient(#fffbf2,#ffeedc)", medio: "🎈",
   ayuda: "Toca el globo para que no caiga 🎈<br>Cada toque suma, y cada vez va más rápido",
   init() {
@@ -817,7 +848,7 @@ JUEGOS.push({
       b.vy = -(330 + this.toques * 2.2);
       b.vx += (b.x - x) * 3.2;
       b.vx = Math.max(-260, Math.min(260, b.vx));
-      this.toques++; this.g = 420 + this.toques * 7;
+      this.toques++; this.g = 420 + this.toques * 11;
       api.sumar(this.toques % 10 === 0 ? 20 : 5, b.x, b.y - 20);
       api.chispas(b.x, b.y, "#ffb3c6", 9); api.tono(520 + this.toques * 10, .06); api.vibrar(12);
     }
