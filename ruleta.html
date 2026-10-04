@@ -129,6 +129,8 @@
 const CANAL = "animo-644cea567218";   // mismo canal ntfy
 const META = 1000;                     // puntos por ficha (debe calzar con juegos.js)
 const DIAS_ENTRE_GIROS = 7;            // solo se gira una vez por semana, aunque haya fichas guardadas
+// ✏️ Pausa de la ruleta: no se puede girar hasta esta fecha (a las 00:00). Cambia o borra la fecha para reabrirla antes.
+const BLOQUEO_HASTA = new Date("2026-10-11T00:00:00").getTime();
 
 const PREMIOS = [
   { e: "🍔", p: "Sushi burger",        d: "La pides a domicilio y la pago yo",            c: "#ffc8dd" },
@@ -181,7 +183,8 @@ function puntosQueFaltan() {
   return Math.max(0, k * META - leer("juego-puntos", 0));
 }
 const ultimoGiro = () => Math.max(0, leer("ultimo-giro", 0), ...cupones.map(c => c.fecha || 0));
-const msParaGirar = () => Math.max(0, ultimoGiro() + DIAS_ENTRE_GIROS * DIA - Date.now());
+const msParaGirar = () => Math.max(0, Math.max(ultimoGiro() + DIAS_ENTRE_GIROS * DIA, BLOQUEO_HASTA) - Date.now());
+const enPausa = () => BLOQUEO_HASTA > ultimoGiro() + DIAS_ENTRE_GIROS * DIA && Date.now() < BLOQUEO_HASTA;
 const textoEspera = ms => { const d = Math.ceil(ms / DIA); return d <= 1 ? "mañana" : `en ${d} días`; };
 function quedan(c) {
   const ms = (c.vence || c.fecha + DIAS_VENCE * DIA) - Date.now();
@@ -257,7 +260,9 @@ function actualizarEstado() {
   const f = fichasDisponibles(), espera = msParaGirar();
   if (espera > 0) {
     hub.disabled = true;
-    hint.innerHTML = `Ya giraste esta semana 🎡<br>Podrás volver a girar <b>${textoEspera(espera)}</b>` +
+    hint.innerHTML = (enPausa()
+      ? `La ruleta descansa esta semana 🎡<br>Vuelve a abrir el <b>${fmt(BLOQUEO_HASTA)}</b>`
+      : `Ya giraste esta semana 🎡<br>Podrás volver a girar <b>${textoEspera(espera)}</b>`) +
       (f > 0 ? `<br>Tienes <b>${f}</b> ficha${f === 1 ? "" : "s"} guardada${f === 1 ? "" : "s"} 🎟️` : `<br><a class="link" href="juegos.html">🎮 Sala de juegos</a>`);
   } else if (f > 0) {
     hub.disabled = false;

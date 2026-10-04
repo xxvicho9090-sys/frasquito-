@@ -5,6 +5,8 @@
 const META = 1000;  // puntos para ganar una ficha (1 giro de ruleta)
 const TOPE = 60;    // máximo de puntos que puede dar UNA partida
 const DIAS_ENTRE_GIROS = 7;   // aunque tenga fichas guardadas, solo se gira una vez por semana
+// ✏️ Pausa de la ruleta: no se puede girar hasta esta fecha (a las 00:00). Debe ser la misma que en ruleta.html
+const BLOQUEO_HASTA = new Date("2026-10-11T00:00:00").getTime();
 const CANAL = "animo-644cea567218";
 
 /* ---------- Guardado ---------- */
@@ -20,7 +22,7 @@ const puntosQueFaltan = () => {
   return Math.max(0, k * META - S.leer("juego-puntos", 0));
 };
 const ultimoGiro = () => Math.max(0, S.leer("ultimo-giro", 0), ...S.leer("ruleta-cupones", []).map(c => c.fecha || 0));
-const msParaGirar = () => Math.max(0, ultimoGiro() + DIAS_ENTRE_GIROS * 86400000 - Date.now());
+const msParaGirar = () => Math.max(0, Math.max(ultimoGiro() + DIAS_ENTRE_GIROS * 86400000, BLOQUEO_HASTA) - Date.now());
 const textoEspera = ms => { const d = Math.ceil(ms / 86400000); return d <= 1 ? "mañana" : `en ${d} días`; };
 
 /* ---------- Estilos de los juegos DOM ---------- */
@@ -288,7 +290,10 @@ function terminar() {
   let resumen;
   if (ahora > 0) {
     resumen = `Tienes <b>${ahora}</b> ficha${ahora === 1 ? "" : "s"} guardada${ahora === 1 ? "" : "s"} 🎟️<br>` +
-      (espera === 0 ? "Ya puedes girar la ruleta 🎡" : `Podrás girar la ruleta <b>${textoEspera(espera)}</b> (1 giro por semana).`);
+      (espera === 0 ? "Ya puedes girar la ruleta 🎡"
+        : Date.now() < BLOQUEO_HASTA && BLOQUEO_HASTA >= ultimoGiro() + DIAS_ENTRE_GIROS * 86400000
+          ? `La ruleta descansa esta semana: podrás girar el <b>${new Date(BLOQUEO_HASTA).toLocaleDateString("es-CL", { day: "numeric", month: "long" })}</b>.`
+          : `Podrás girar la ruleta <b>${textoEspera(espera)}</b> (1 giro por semana).`);
   } else {
     resumen = `Te faltan <b>${falta}</b> puntos para la próxima ficha 🎟️`;
   }
