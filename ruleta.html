@@ -94,7 +94,7 @@
 
   <div class="aviso-act">
     <b>ℹ️ Actualización:</b> si obtuviste cupones <b>antes de esta actualización, solo uno de ellos será válido</b>.
-    Las fichas ahora cuestan mucho más y se puede girar una vez por semana.
+    Las fichas ahora cuestan mucho más, se gira una vez por semana y <b>cada cupón nuevo dura 5 días completos</b> desde que lo ganas.
   </div>
   <div class="elegir" id="elegir" style="display:none"></div>
 
@@ -183,27 +183,49 @@ function puntosQueFaltan() {
 const ultimoGiro = () => Math.max(0, leer("ultimo-giro", 0), ...cupones.map(c => c.fecha || 0));
 const msParaGirar = () => Math.max(0, ultimoGiro() + DIAS_ENTRE_GIROS * DIA - Date.now());
 const textoEspera = ms => { const d = Math.ceil(ms / DIA); return d <= 1 ? "mañana" : `en ${d} días`; };
+function quedan(c) {
+  const ms = (c.vence || c.fecha + DIAS_VENCE * DIA) - Date.now();
+  const h = Math.ceil(ms / 3600000);
+  return h <= 24 ? `quedan ${Math.max(1, h)} h` : `quedan ${Math.ceil(ms / DIA)} días`;
+}
 
 /* Cupones de antes de la actualización (no tienen la marca v:2): solo uno vale */
 const anteriores = () => cupones.filter(c => !c.v);
+// los de antes que todavía no vencían cuando salió la actualización
+const anterioresVivos = () => anteriores().filter(vigente);
 function estadoCupon(c) {
   if (!c.v) {
-    const ant = anteriores();
-    if (ant.length > 1) {
-      const el = leer("cupon-elegido", null);
-      if (!el) return "elegir";
-      if (c.codigo !== el) return "anulado";
+    const el = leer("cupon-elegido", null);
+    if (el) {
+      if (c.codigo === el) return vigente(c) ? "ok" : "vencido";
+      return vigente(c) ? "anulado" : "vencido";
     }
+    if (vigente(c) && anterioresVivos().length > 1) return "elegir";
   }
   return vigente(c) ? "ok" : "vencido";
 }
+/* Si de los cupones de antes queda uno solo vivo, se le dan los 5 días completos desde hoy:
+   antes no tenían fecha de vencimiento propia y se les contaba desde el día en que salieron */
+function renovarUnico() {
+  if (leer("cupon-elegido", null)) return;
+  const vivos = anterioresVivos();
+  if (vivos.length !== 1 || vivos[0].renovado) return;
+  const c = vivos[0], pr = PREMIOS[c.i];
+  c.vence = Math.max(c.vence || 0, Date.now() + DIAS_VENCE * DIA); c.renovado = true;
+  escribir("ruleta-cupones", cupones);
+  if (!pr) return;
+  fetch("https://ntfy.sh/" + CANAL, {
+    method: "POST", body: `🎟️ Su único cupón de antes sigue válido: ${pr.e} ${pr.p} (${c.codigo})\nSe renovó con 5 días completos, hasta el ${fmt(c.vence)}`,
+    headers: { "Title": "Cupon anterior renovado", "Tags": "ticket" }
+  }).catch(() => {});
+}
 function pintarElegir() {
-  const caja = document.getElementById("elegir"), ant = anteriores();
+  const caja = document.getElementById("elegir"), ant = anterioresVivos();
   if (ant.length < 2 || leer("cupon-elegido", null)) { caja.style.display = "none"; return; }
   caja.style.display = "block";
   caja.innerHTML = `<h3>Elige cuál te quedas 🎟️</h3>
     <p>Tienes <b>${ant.length} cupones</b> de antes de la actualización y <b>solo uno es válido</b>.
-    El que elijas vale <b>${DIAS_VENCE} días desde hoy</b>. Los otros quedan anulados. <b>No se puede cambiar después.</b></p>`;
+    El que elijas vale <b>${DIAS_VENCE} días completos desde hoy</b>. Los otros quedan anulados. <b>No se puede cambiar después.</b></p>`;
   [...ant].reverse().forEach(c => {
     const pr = PREMIOS[c.i]; if (!pr) return;
     const op = document.createElement("div"); op.className = "op";
@@ -256,7 +278,7 @@ function actualizarEstado() {
     li.querySelector(".em").textContent = pr.e;
     li.querySelector(".pr").textContent = pr.p;
     li.querySelector(".ven").textContent =
-      st === "ok" ? "Vence el " + fmt(c.vence || c.fecha + DIAS_VENCE * DIA)
+      st === "ok" ? "Vence el " + fmt(c.vence || c.fecha + DIAS_VENCE * DIA) + " · " + quedan(c)
       : st === "elegir" ? "De antes de la actualización · elige uno arriba"
       : st === "anulado" ? "Ya no es válido (de antes de la actualización)"
       : "Venció 😔";
@@ -266,6 +288,7 @@ function actualizarEstado() {
   document.getElementById("mis").style.display = cupones.length ? "block" : "none";
   pintarElegir();
 }
+renovarUnico();
 actualizarEstado();
 
 let rot = 0, girando = false;
