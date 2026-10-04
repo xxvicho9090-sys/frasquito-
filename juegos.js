@@ -2,8 +2,9 @@
    SALA DE JUEGOS — motor común + 10 juegos
    ✏️ PERSONALIZA: META (puntos por ficha) y CANAL (ntfy)
    ============================================================ */
-const META = 400;   // puntos para ganar una ficha (1 giro de ruleta)
-const TOPE = 110;   // máximo de puntos que puede dar UNA partida
+const META = 1000;  // puntos para ganar una ficha (1 giro de ruleta)
+const TOPE = 60;    // máximo de puntos que puede dar UNA partida
+const DIAS_ENTRE_GIROS = 7;   // aunque tenga fichas guardadas, solo se gira una vez por semana
 const CANAL = "animo-644cea567218";
 
 /* ---------- Guardado ---------- */
@@ -11,8 +12,16 @@ const S = {
   leer(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch { return d; } },
   escribir(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
 };
-const fichasDisponibles = () =>
-  Math.floor(S.leer("juego-puntos", 0) / META) + S.leer("fichas-extra", 0) - S.leer("fichas-usadas", 0);
+const fichasGanadas = () => Math.floor(S.leer("juego-puntos", 0) / META) + S.leer("fichas-extra", 0);
+const fichasDisponibles = () => Math.max(0, fichasGanadas() - S.leer("fichas-usadas", 0));
+// puntos que faltan para la próxima ficha (cuenta también las fichas que ya gastó)
+const puntosQueFaltan = () => {
+  const k = S.leer("fichas-usadas", 0) + 1 - S.leer("fichas-extra", 0);
+  return Math.max(0, k * META - S.leer("juego-puntos", 0));
+};
+const ultimoGiro = () => Math.max(0, S.leer("ultimo-giro", 0), ...S.leer("ruleta-cupones", []).map(c => c.fecha || 0));
+const msParaGirar = () => Math.max(0, ultimoGiro() + DIAS_ENTRE_GIROS * 86400000 - Date.now());
+const textoEspera = ms => { const d = Math.ceil(ms / 86400000); return d <= 1 ? "mañana" : `en ${d} días`; };
 
 /* ---------- Estilos de los juegos DOM ---------- */
 document.head.insertAdjacentHTML("beforeend", `<style>
@@ -267,20 +276,25 @@ function terminar() {
   const antes = fichasDisponibles();
   const total = S.leer("juego-puntos", 0) + puntos;
   S.escribir("juego-puntos", total);
-  const ahora = Math.floor(total / META) + S.leer("fichas-extra", 0) - S.leer("fichas-usadas", 0);
+  const ahora = fichasDisponibles();
   const ganadas = ahora - antes;
   pintarFichas();
 
-  const falta = META - (total % META);
+  const falta = puntosQueFaltan();
+  const espera = msParaGirar();
   const botones = [{ txt: "Otra vez", cls: "btn", fn: arrancar }, { txt: "Otros juegos", cls: "btn alt", fn: volverHub }];
-  if (ahora > 0) botones.unshift({ txt: "🎡 Girar la ruleta", cls: "btn oro", href: "ruleta.html" });
+  if (ahora > 0 && espera === 0) botones.unshift({ txt: "🎡 Girar la ruleta", cls: "btn oro", href: "ruleta.html" });
 
+  let resumen;
+  if (ahora > 0) {
+    resumen = `Tienes <b>${ahora}</b> ficha${ahora === 1 ? "" : "s"} guardada${ahora === 1 ? "" : "s"} 🎟️<br>` +
+      (espera === 0 ? "Ya puedes girar la ruleta 🎡" : `Podrás girar la ruleta <b>${textoEspera(espera)}</b> (1 giro por semana).`);
+  } else {
+    resumen = `Te faltan <b>${falta}</b> puntos para la próxima ficha 🎟️`;
+  }
   ovMostrar(
     ganadas > 0 ? "¡Ganaste una ficha! 🎟️" : nuevoRec ? "¡Nuevo récord! 🏆" : "Se acabó",
-    `<span class="pts">${puntos}<small>${puntos >= TOPE ? "PUNTOS (TOPE)" : "PUNTOS"}</small></span>` +
-    (ganadas > 0
-      ? `Tienes <b>${ahora}</b> giro${ahora === 1 ? "" : "s"} de ruleta esperándote 🎡`
-      : `Llevas <b>${total}</b> puntos en total.<br>Te faltan <b>${falta}</b> para la próxima ficha 🎟️`),
+    `<span class="pts">${puntos}<small>${puntos >= TOPE ? "PUNTOS (TOPE)" : "PUNTOS"}</small></span>` + resumen,
     botones);
   if (ganadas > 0) {
     confeti();
@@ -337,7 +351,7 @@ const JUEGOS = [];
 
 /* 1 ── Atrapa Dulces ─────────────────────────────────────── */
 JUEGOS.push({
-  id: "atrapa", nombre: "Atrapa Dulces", emoji: "🍬", tipo: "canvas", tiempo: 45, factor: 0.22,
+  id: "atrapa", nombre: "Atrapa Dulces", emoji: "🍬", tipo: "canvas", tiempo: 40, factor: 0.16,
   color: "#ffd9e4", desc: "Mueve la canasta", fondo: "linear-gradient(#fff6fa,#ffe8f1)",
   ayuda: "Mueve el dedo para atrapar los dulces 🍬<br>Esquiva las verduras 🥦 (hoy no, gracias)",
   init() {
@@ -348,14 +362,14 @@ JUEGOS.push({
     this.cesta = Math.max(38, Math.min(E.W - 38, this.cesta));
     this.spawn -= dt;
     if (this.spawn <= 0) {
-      this.spawn = .42 + Math.random() * .3;
-      const malo = Math.random() < .22;
+      this.spawn = .34 + Math.random() * .26;
+      const malo = Math.random() < .32;
       const buenos = [["🍬", 5], ["🍭", 5], ["🍪", 5], ["🍩", 5], ["🍦", 8], ["🧃", 5]];
       const estrella = Math.random() < .07;
-      const [em, pts] = malo ? [["🥦", -5], ["🥬", -5], ["🧅", -5]][Math.floor(Math.random() * 3)]
+      const [em, pts] = malo ? [["🥦", -8], ["🥬", -8], ["🧅", -8]][Math.floor(Math.random() * 3)]
         : estrella ? ["⭐", 15] : buenos[Math.floor(Math.random() * buenos.length)];
       this.items.push({ em, pts, malo, x: 26 + Math.random() * (E.W - 52), y: -26,
-        v: 150 + Math.random() * 100 + (45 - E.tiempo) * 3.2, g: (Math.random() - .5) * 3 });
+        v: 180 + Math.random() * 110 + (40 - E.tiempo) * 4.6, g: (Math.random() - .5) * 3 });
     }
     const suelo = E.H - 52;
     for (const it of this.items) {
@@ -389,7 +403,7 @@ JUEGOS.push({
 
 /* 2 ── Memoria ───────────────────────────────────────────── */
 JUEGOS.push({
-  id: "memoria", nombre: "Memoria", emoji: "🧠", tipo: "dom", tiempo: 60, factor: 0.22,
+  id: "memoria", nombre: "Memoria", emoji: "🧠", tipo: "dom", tiempo: 50, factor: 0.15,
   color: "#dfe8ff", desc: "Encuentra los pares", fondo: "linear-gradient(#f7faff,#e9f0ff)",
   ayuda: "Da vuelta las cartas y encuentra los 8 pares 🍬<br>Mientras menos intentos, más puntos",
   init() {
@@ -405,7 +419,7 @@ JUEGOS.push({
       d.onclick = () => this.voltear(d);
       cont.appendChild(d);
     });
-    api.hud("🍬 0", "⏱️ 60", "🏆 " + S.leer("rec-memoria", 0));
+    api.hud("🍬 0", "⏱️ 50", "🏆 " + S.leer("rec-memoria", 0));
   },
   voltear(d) {
     if (this.bloqueo || d.classList.contains("v") || !E.corriendo) return;
@@ -420,7 +434,7 @@ JUEGOS.push({
           a.classList.add("ok"); b.classList.add("ok");
           this.pares++; api.sumar(20); api.tono(760, .1); api.vibrar(25);
           this.vueltas = []; this.bloqueo = false;
-          if (this.pares === 8) { api.sumar(Math.max(0, 60 - this.intentos * 3) + Math.round(E.tiempo)); api.fin(); }
+          if (this.pares === 8) { api.sumar(Math.max(0, 50 - this.intentos * 4) + Math.round(E.tiempo)); api.fin(); }
         }, 320);
       } else {
         luego(() => {
@@ -434,17 +448,17 @@ JUEGOS.push({
 
 /* 3 ── Burbujas ──────────────────────────────────────────── */
 JUEGOS.push({
-  id: "burbujas", nombre: "Burbujas", emoji: "🫧", tipo: "canvas", tiempo: 40, factor: 0.09,
+  id: "burbujas", nombre: "Burbujas", emoji: "🫧", tipo: "canvas", tiempo: 35, factor: 0.07,
   color: "#d9f0ff", desc: "Revienta antes que escapen", fondo: "linear-gradient(#eef8ff,#dceeff)",
   ayuda: "Toca las burbujas antes de que se escapen 🫧<br>Las rojas 💣 te quitan puntos, no las toques",
   init() { this.bs = []; this.spawn = 0; },
   update(dt) {
     this.spawn -= dt;
     if (this.spawn <= 0) {
-      this.spawn = .3 + Math.random() * .22;
-      const mala = Math.random() < .26;
+      this.spawn = .26 + Math.random() * .2;
+      const mala = Math.random() < .34;
       this.bs.push({ x: 30 + Math.random() * (E.W - 60), y: E.H + 30, r: 20 + Math.random() * 16,
-        v: 75 + Math.random() * 85, mala, fase: Math.random() * 6, hue: Math.random() * 60 + 300 });
+        v: 95 + Math.random() * 100, mala, fase: Math.random() * 6, hue: Math.random() * 60 + 300 });
     }
     for (const b of this.bs) { b.y -= b.v * dt; b.fase += dt * 2; b.x += Math.sin(b.fase) * .6; }
     this.bs = this.bs.filter(b => b.y > -40 && !b.pop);
@@ -479,7 +493,7 @@ JUEGOS.push({
 
 /* 4 ── Serpiente ─────────────────────────────────────────── */
 JUEGOS.push({
-  id: "snake", nombre: "Gusanito", emoji: "🐛", tipo: "canvas", tiempo: null, factor: 0.8,
+  id: "snake", nombre: "Gusanito", emoji: "🐛", tipo: "canvas", tiempo: null, factor: 0.35,
   color: "#dff6e3", desc: "Come sin chocar", fondo: "linear-gradient(#f3fff6,#e2f7e8)", medio: "🐛",
   ayuda: "Mueve al gusanito con las flechas o deslizando 🐛<br>Come dulces y no choques contigo misma",
   init() {
@@ -488,7 +502,7 @@ JUEGOS.push({
     this.cols = Math.floor(E.W / this.cel); this.filas = Math.floor(alto / this.cel);
     this.ox = (E.W - this.cols * this.cel) / 2; this.oy = 8;
     this.s = [{ x: 4, y: Math.floor(this.filas / 2) }]; this.d = { x: 1, y: 0 }; this.cola = [];
-    this.acum = 0; this.vel = .17; this.crecer = 2; this.poner();
+    this.acum = 0; this.vel = .14; this.crecer = 2; this.poner();
     // flechas en pantalla: más fáciles que deslizar
     const d = document.createElement("div");
     d.className = "dpad";
@@ -535,7 +549,7 @@ JUEGOS.push({
     if (cab.x === this.fruta.x && cab.y === this.fruta.y) {
       api.sumar(12, this.ox + cab.x * this.cel, this.oy + cab.y * this.cel);
       api.chispas(this.ox + cab.x * this.cel + this.cel / 2, this.oy + cab.y * this.cel + this.cel / 2, "#8ed9a4", 10);
-      api.tono(680, .07); this.crecer += 2; this.vel = Math.max(.07, this.vel - .004); this.poner();
+      api.tono(680, .07); this.crecer += 2; this.vel = Math.max(.05, this.vel - .005); this.poner();
     }
     if (this.crecer > 0) this.crecer--; else this.s.pop();
   },
@@ -559,14 +573,14 @@ JUEGOS.push({
 
 /* 5 ── Torre ─────────────────────────────────────────────── */
 JUEGOS.push({
-  id: "torre", nombre: "Torre Dulce", emoji: "🧁", tipo: "canvas", tiempo: null, factor: 0.3,
+  id: "torre", nombre: "Torre Dulce", emoji: "🧁", tipo: "canvas", tiempo: null, factor: 0.25,
   color: "#ffe9cf", desc: "Apila sin fallar", fondo: "linear-gradient(#fffaf2,#ffeedb)", medio: "🧁",
   ayuda: "Toca la pantalla para soltar el bloque 🧁<br>Apílalos lo más derecho posible",
   init() {
     this.bh = 26; this.base = { x: E.W / 2 - 55, w: 110 };
     this.anchoPrev = E.W;
     this.pila = [{ ...this.base, y: E.H - 40 }];
-    this.actual = { x: 0, w: 110, dir: 1, v: 150 };
+    this.actual = { x: 0, w: 110, dir: 1, v: 185 };
     this.cam = 0; this.perfectos = 0;
   },
   resize() {
@@ -592,7 +606,7 @@ JUEGOS.push({
     else { this.perfectos = 0; api.sumar(10); api.tono(560, .07); }
     this.pila.push({ x: izq, w: ancho, y: 0 });
     this.actual = { x: Math.random() < .5 ? 0 : E.W - ancho, w: ancho, dir: Math.random() < .5 ? 1 : -1,
-                    v: Math.min(330, 150 + this.pila.length * 9) };
+                    v: Math.min(440, 185 + this.pila.length * 13) };
     api.vibrar(18);
   },
   draw(c) {
@@ -613,7 +627,7 @@ JUEGOS.push({
 
 /* 6 ── Simón ─────────────────────────────────────────────── */
 JUEGOS.push({
-  id: "simon", nombre: "Repite", emoji: "🎵", tipo: "dom", tiempo: null, factor: 0.3,
+  id: "simon", nombre: "Repite", emoji: "🎵", tipo: "dom", tiempo: null, factor: 0.12,
   color: "#ecdcff", desc: "Memoriza la secuencia", fondo: "linear-gradient(#faf5ff,#efe4ff)", medio: "🎵",
   ayuda: "Mira la secuencia y repítela 🎵<br>Cada ronda se agrega un color más",
   init() {
@@ -641,7 +655,7 @@ JUEGOS.push({
     this.paso = 0; this.turno = false;
     const p = E.dom.querySelector("#pista"); if (p) p.textContent = "Ronda " + this.ronda + " — mira bien...";
     let i = 0;
-    const rapido = Math.max(300, 560 - this.ronda * 18);
+    const rapido = Math.max(230, 500 - this.ronda * 24);
     this.int = cadaTanto(() => {
       if (!E.corriendo || E.pausa) { if (!E.corriendo) clearInterval(this.int); return; }
       this.prender(this.sec[i], Math.min(380, rapido * .7)); i++;
@@ -675,20 +689,20 @@ JUEGOS.push({
 
 /* 7 ── Esquiva ───────────────────────────────────────────── */
 JUEGOS.push({
-  id: "esquiva", nombre: "Esquiva", emoji: "🏃‍♀️", tipo: "canvas", tiempo: null, factor: 0.45,
+  id: "esquiva", nombre: "Esquiva", emoji: "🏃‍♀️", tipo: "canvas", tiempo: null, factor: 0.3,
   color: "#ffe0e0", desc: "No choques", fondo: "linear-gradient(#fff5f5,#ffe6ea)", medio: "🏃‍♀️",
   ayuda: "Mueve el dedo para esquivar 🪨<br>Junta los corazones ❤️ y aguanta lo más posible",
   init() {
-    this.x = E.W / 2; this.obs = []; this.spawn = 0; this.vel = 210; this.dist = 0; this.linea = 0;
+    this.x = E.W / 2; this.obs = []; this.spawn = 0; this.vel = 240; this.dist = 0; this.linea = 0;
   },
   update(dt) {
     if (E.puntero.movido) this.x += (E.puntero.x - this.x) * Math.min(1, dt * 12);
     this.x = Math.max(20, Math.min(E.W - 20, this.x));
-    this.vel += dt * 11; this.dist += dt; this.linea = (this.linea + this.vel * dt) % 40;
+    this.vel += dt * 15; this.dist += dt; this.linea = (this.linea + this.vel * dt) % 40;
     this.spawn -= dt;
     if (this.spawn <= 0) {
-      this.spawn = .42 + Math.random() * .25;
-      const bueno = Math.random() < .22;
+      this.spawn = .34 + Math.random() * .22;
+      const bueno = Math.random() < .18;
       let x, intentos = 0;
       do {
         x = 24 + Math.random() * (E.W - 48); intentos++;
@@ -719,7 +733,7 @@ JUEGOS.push({
 
 /* 8 ── Dulces 2048 ───────────────────────────────────────── */
 JUEGOS.push({
-  id: "dulces", nombre: "Junta Dulces", emoji: "🍭", tipo: "dom", tiempo: null, factor: 0.09,
+  id: "dulces", nombre: "Junta Dulces", emoji: "🍭", tipo: "dom", tiempo: null, factor: 0.015,
   color: "#ffe5f0", desc: "Une los iguales", fondo: "linear-gradient(#fff7fb,#ffeaf4)", medio: "🍭",
   ayuda: "Desliza para juntar dulces iguales 🍬+🍬=🍭<br>Se acaba cuando no quedan movimientos",
   init() {
@@ -788,13 +802,13 @@ JUEGOS.push({
 
 /* 9 ── Encuentra el distinto ─────────────────────────────── */
 JUEGOS.push({
-  id: "distinto", nombre: "El Distinto", emoji: "🔍", tipo: "dom", tiempo: 40, factor: 0.2,
+  id: "distinto", nombre: "El Distinto", emoji: "🔍", tipo: "dom", tiempo: 35, factor: 0.18,
   color: "#e4f7e8", desc: "Ojo rápido", fondo: "linear-gradient(#f6fff8,#e6f7ea)",
   ayuda: "Uno de los dulces es distinto a los demás 🔍<br>Tócalo antes de que se acabe el tiempo",
   init() { this.nivel = 0; this.ronda(); },
   ronda() {
     this.nivel++;
-    const n = Math.min(2 + Math.floor(this.nivel / 2), 7);
+    const n = Math.min(2 + Math.floor(this.nivel / 1.5), 8);
     const total = n * n;
     const pares = [["🍬", "🍭"], ["🍪", "🍩"], ["🧁", "🍰"], ["🍓", "🍒"], ["🍏", "🍐"], ["⭐", "✨"], ["💛", "🧡"]];
     const [a, b] = pares[Math.floor(Math.random() * pares.length)];
@@ -819,19 +833,19 @@ JUEGOS.push({
     } else {
       api.sumar(-5); api.tono(160, .14, "square"); api.vibrar(60);
       bt.classList.add("mal"); setTimeout(() => bt.classList.remove("mal"), 350);
-      E.tiempo = Math.max(1, E.tiempo - 3);
+      E.tiempo = Math.max(1, E.tiempo - 4);
     }
   },
 });
 
 /* 10 ── Rebota ───────────────────────────────────────────── */
 JUEGOS.push({
-  id: "rebota", nombre: "No Se Cae", emoji: "🎈", tipo: "canvas", tiempo: null, factor: 0.16,
+  id: "rebota", nombre: "No Se Cae", emoji: "🎈", tipo: "canvas", tiempo: null, factor: 0.12,
   color: "#fff0d6", desc: "Que no toque el suelo", fondo: "linear-gradient(#fffbf2,#ffeedc)", medio: "🎈",
   ayuda: "Toca el globo para que no caiga 🎈<br>Cada toque suma, y cada vez va más rápido",
   init() {
-    this.b = { x: E.W / 2, y: E.H * .35, vx: 60, vy: 0, r: 26 };
-    this.toques = 0; this.g = 420;
+    this.b = { x: E.W / 2, y: E.H * .35, vx: 60, vy: 0, r: 22 };
+    this.toques = 0; this.g = 470;
   },
   update(dt) {
     const b = this.b;
@@ -845,10 +859,10 @@ JUEGOS.push({
     if (tipo !== "abajo") return;
     const b = this.b;
     if (Math.hypot(b.x - x, b.y - y) < b.r + 30) {
-      b.vy = -(330 + this.toques * 2.2);
+      b.vy = -(350 + this.toques * 3);
       b.vx += (b.x - x) * 3.2;
       b.vx = Math.max(-260, Math.min(260, b.vx));
-      this.toques++; this.g = 420 + this.toques * 11;
+      this.toques++; this.g = 470 + this.toques * 14;
       api.sumar(this.toques % 10 === 0 ? 20 : 5, b.x, b.y - 20);
       api.chispas(b.x, b.y, "#ffb3c6", 9); api.tono(520 + this.toques * 10, .06); api.vibrar(12);
     }
@@ -875,9 +889,10 @@ function pintarFichas() {
 }
 function pintarHub() {
   pintarFichas();
-  const total = S.leer("juego-puntos", 0);
-  document.getElementById("progTxt").textContent = (total % META) + " / " + META;
-  document.getElementById("progBar").style.width = ((total % META) / META * 100) + "%";
+  const falta = puntosQueFaltan(), tiene = fichasDisponibles() > 0;
+  const actual = tiene ? META : Math.max(0, META - falta);
+  document.getElementById("progTxt").textContent = tiene ? "¡Ficha lista!" : (falta > META ? `faltan ${falta}` : `${actual} / ${META}`);
+  document.getElementById("progBar").style.width = (actual / META * 100) + "%";
   const g = document.getElementById("grid"); g.innerHTML = "";
   JUEGOS.forEach(j => {
     const b = document.createElement("button");

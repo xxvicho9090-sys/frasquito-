@@ -67,6 +67,20 @@
   .mis li.vencido .pr { text-decoration:line-through; }
   .cupon .vence { display:block; margin-top:10px; font-weight:800; color:var(--accent); font-size:.85rem; }
   .cupon .tope { color:var(--soft); font-size:.78rem; font-weight:700; letter-spacing:1px; }
+  .aviso-act { background:#fff8e6; border-left:4px solid #e0a92b; border-radius:14px; padding:12px 14px; margin:0 0 16px;
+               text-align:left; font-size:.86rem; line-height:1.45; color:#6b5520; }
+  .elegir { background:#fff; border-radius:20px; padding:16px; margin:0 0 18px; text-align:left;
+            box-shadow:0 8px 24px #3b2f4a1a; border:2px solid #f6c1cd; }
+  .elegir h3 { font-family:"Caveat", cursive; font-size:1.55rem; line-height:1.1; margin-bottom:4px; }
+  .elegir p { font-size:.86rem; color:var(--soft); line-height:1.45; margin-bottom:10px; }
+  .elegir .op { display:flex; align-items:center; gap:10px; padding:10px 0; border-top:1px dashed #efe2ea; }
+  .elegir .op .em { font-size:1.6rem; }
+  .elegir .op .tx { flex:1; font-weight:800; font-size:.92rem; line-height:1.25; }
+  .elegir .op .tx small { display:block; font-family:monospace; color:var(--soft); font-weight:600; font-size:.72rem; }
+  .elegir .op button { border:none; border-radius:12px; padding:9px 12px; font:inherit; font-weight:900; font-size:.8rem;
+                       background:var(--accent); color:#fff; cursor:pointer; }
+  .mis li.anulado { opacity:.5; }
+  .mis li.anulado .pr { text-decoration:line-through; }
   .link { display:inline-block; margin-top:18px; color:var(--soft); font-size:.85rem; text-decoration:none; font-weight:600;
           background:#ffffffaa; padding:8px 14px; border-radius:99px; }
   .float { position:fixed; bottom:-40px; font-size:1.5rem; animation:up linear forwards; z-index:1; pointer-events:none; }
@@ -76,7 +90,13 @@
 <body>
 <div class="card">
   <h1>Ruleta de Cupones</h1>
-  <p class="sub">Cada ficha es un giro 🎟️ Lo que salga, te lo debo 🎁<br>Tienes 5 días para cobrarlo</p>
+  <p class="sub">Cada ficha es un giro 🎟️ Lo que salga, te lo debo 🎁<br>1 giro por semana · tienes 5 días para cobrarlo</p>
+
+  <div class="aviso-act">
+    <b>ℹ️ Actualización:</b> si obtuviste cupones <b>antes de esta actualización, solo uno de ellos será válido</b>.
+    Las fichas ahora cuestan mucho más y se puede girar una vez por semana.
+  </div>
+  <div class="elegir" id="elegir" style="display:none"></div>
 
   <div class="wheel-wrap">
     <div class="pointer"></div>
@@ -107,7 +127,8 @@
 <script>
 // ✏️ PERSONALIZA AQUÍ
 const CANAL = "animo-644cea567218";   // mismo canal ntfy
-const META = 400;                      // puntos por ficha (debe calzar con juegos.js)
+const META = 1000;                     // puntos por ficha (debe calzar con juegos.js)
+const DIAS_ENTRE_GIROS = 7;            // solo se gira una vez por semana, aunque haya fichas guardadas
 
 const PREMIOS = [
   { e: "🍔", p: "Sushi burger",        d: "La pides a domicilio y la pago yo",            c: "#ffc8dd" },
@@ -152,45 +173,107 @@ function vigente(c) { return Date.now() < (c.vence || (c.fecha + DIAS_VENCE * DI
   svg.innerHTML = html;
 })();
 
-function fichasDisponibles() {
-  return Math.floor(leer("juego-puntos", 0) / META) + leer("fichas-extra", 0) - leer("fichas-usadas", 0);
+const fichasGanadas = () => Math.floor(leer("juego-puntos", 0) / META) + leer("fichas-extra", 0);
+const fichasDisponibles = () => Math.max(0, fichasGanadas() - leer("fichas-usadas", 0));
+// puntos que faltan para la próxima ficha (cuenta también las que ya gastó)
+function puntosQueFaltan() {
+  const k = leer("fichas-usadas", 0) + 1 - leer("fichas-extra", 0);
+  return Math.max(0, k * META - leer("juego-puntos", 0));
 }
+const ultimoGiro = () => Math.max(0, leer("ultimo-giro", 0), ...cupones.map(c => c.fecha || 0));
+const msParaGirar = () => Math.max(0, ultimoGiro() + DIAS_ENTRE_GIROS * DIA - Date.now());
+const textoEspera = ms => { const d = Math.ceil(ms / DIA); return d <= 1 ? "mañana" : `en ${d} días`; };
+
+/* Cupones de antes de la actualización (no tienen la marca v:2): solo uno vale */
+const anteriores = () => cupones.filter(c => !c.v);
+function estadoCupon(c) {
+  if (!c.v) {
+    const ant = anteriores();
+    if (ant.length > 1) {
+      const el = leer("cupon-elegido", null);
+      if (!el) return "elegir";
+      if (c.codigo !== el) return "anulado";
+    }
+  }
+  return vigente(c) ? "ok" : "vencido";
+}
+function pintarElegir() {
+  const caja = document.getElementById("elegir"), ant = anteriores();
+  if (ant.length < 2 || leer("cupon-elegido", null)) { caja.style.display = "none"; return; }
+  caja.style.display = "block";
+  caja.innerHTML = `<h3>Elige cuál te quedas 🎟️</h3>
+    <p>Tienes <b>${ant.length} cupones</b> de antes de la actualización y <b>solo uno es válido</b>.
+    El que elijas vale <b>${DIAS_VENCE} días desde hoy</b>. Los otros quedan anulados. <b>No se puede cambiar después.</b></p>`;
+  [...ant].reverse().forEach(c => {
+    const pr = PREMIOS[c.i]; if (!pr) return;
+    const op = document.createElement("div"); op.className = "op";
+    op.innerHTML = `<span class="em"></span><span class="tx"></span><button>Quedarme con este</button>`;
+    op.querySelector(".em").textContent = pr.e;
+    const tx = op.querySelector(".tx"); tx.textContent = pr.p;
+    const sm = document.createElement("small"); sm.textContent = c.codigo; tx.appendChild(sm);
+    op.querySelector("button").onclick = () => elegirCupon(c.codigo);
+    caja.appendChild(op);
+  });
+}
+function elegirCupon(codigo) {
+  const c = cupones.find(x => x.codigo === codigo); if (!c) return;
+  const pr = PREMIOS[c.i];
+  if (!confirm(`¿Quedarte con "${pr.p}"? Los otros cupones de antes quedarán anulados y no se puede cambiar.`)) return;
+  c.vence = Date.now() + DIAS_VENCE * DIA; c.reactivado = true;
+  escribir("ruleta-cupones", cupones);
+  escribir("cupon-elegido", codigo);
+  llover([pr.e, "✨", "💛"]);
+  actualizarEstado();
+  fetch("https://ntfy.sh/" + CANAL, {
+    method: "POST", body: `🎟️ Eligió su cupón de antes: ${pr.e} ${pr.p} (${codigo})\nLos demás de antes quedan anulados. Vale hasta el ${fmt(c.vence)}`,
+    headers: { "Title": "Eligio un cupon", "Tags": "ticket" }
+  }).catch(() => {});
+}
+
 function actualizarEstado() {
   const hub = document.getElementById("hub"), hint = document.getElementById("hint");
-  const f = fichasDisponibles();
-  const total = leer("juego-puntos", 0), falta = META - (total % META);
-  if (f > 0) {
+  const f = fichasDisponibles(), espera = msParaGirar();
+  if (espera > 0) {
+    hub.disabled = true;
+    hint.innerHTML = `Ya giraste esta semana 🎡<br>Podrás volver a girar <b>${textoEspera(espera)}</b>` +
+      (f > 0 ? `<br>Tienes <b>${f}</b> ficha${f === 1 ? "" : "s"} guardada${f === 1 ? "" : "s"} 🎟️` : `<br><a class="link" href="juegos.html">🎮 Sala de juegos</a>`);
+  } else if (f > 0) {
     hub.disabled = false;
     hint.innerHTML = `Tienes <b>${f}</b> ficha${f === 1 ? "" : "s"} 🎟️ — toca GIRAR y cruza los dedos 🤞`;
   } else {
     hub.disabled = true;
-    hint.innerHTML = `Te faltan <b>${falta}</b> puntos para una ficha.<br><a class="link" href="juegos.html">🎮 Ir a jugar</a>`;
+    hint.innerHTML = `Te faltan <b>${puntosQueFaltan()}</b> puntos para una ficha.<br><a class="link" href="juegos.html">🎮 Ir a jugar</a>`;
   }
   const lista = document.getElementById("lista");
   lista.innerHTML = "";
   [...cupones].reverse().forEach(c => {
     const pr = PREMIOS[c.i]; if (!pr) return;
-    const ok = vigente(c);
+    const st = estadoCupon(c);
     const li = document.createElement("li");
-    if (!ok) li.className = "vencido";
+    if (st === "vencido") li.className = "vencido";
+    if (st === "anulado") li.className = "anulado";
     li.innerHTML = `<span class="em"></span><span><b class="pr"></b><small class="ven"></small></span><span class="cod"></span>`;
     li.querySelector(".em").textContent = pr.e;
     li.querySelector(".pr").textContent = pr.p;
-    li.querySelector(".ven").textContent = ok
-      ? "Vence el " + fmt(c.vence || c.fecha + DIAS_VENCE * DIA)
+    li.querySelector(".ven").textContent =
+      st === "ok" ? "Vence el " + fmt(c.vence || c.fecha + DIAS_VENCE * DIA)
+      : st === "elegir" ? "De antes de la actualización · elige uno arriba"
+      : st === "anulado" ? "Ya no es válido (de antes de la actualización)"
       : "Venció 😔";
     li.querySelector(".cod").textContent = c.codigo;
     lista.appendChild(li);
   });
   document.getElementById("mis").style.display = cupones.length ? "block" : "none";
+  pintarElegir();
 }
 actualizarEstado();
 
 let rot = 0, girando = false;
 function girar() {
-  if (girando || fichasDisponibles() < 1) return;
+  if (girando || fichasDisponibles() < 1 || msParaGirar() > 0) return;
   girando = true;
   escribir("fichas-usadas", leer("fichas-usadas", 0) + 1);
+  escribir("ultimo-giro", Date.now());
   document.getElementById("hub").disabled = true;
   document.getElementById("cupon").style.display = "none";
   const i = Math.floor(Math.random() * N);
@@ -206,7 +289,7 @@ function ganar(i) {
   const pr = PREMIOS[i];
   const codigo = "CUP-" + Math.random().toString(36).slice(2, 7).toUpperCase();
   const vence = Date.now() + DIAS_VENCE * DIA;
-  cupones.push({ i, codigo, fecha: Date.now(), vence });
+  cupones.push({ i, codigo, fecha: Date.now(), vence, v: 2 });
   escribir("ruleta-cupones", cupones);
   document.getElementById("cE").textContent = pr.e;
   document.getElementById("cP").textContent = pr.p;
