@@ -122,6 +122,18 @@
   .mood:hover { transform:translateY(-3px); box-shadow:0 10px 22px #00000018; }
   .m-bueno { background:#ffd6e0; } .m-piola { background:#fff0c2; }
   .m-gris { background:#dbe4ee; } .m-dificil { background:#e6def5; }
+  .o-sino { color:var(--soft); font-size:.8rem; font-weight:700; margin:18px 0 10px; display:flex; align-items:center; gap:10px; }
+  .o-sino::before, .o-sino::after { content:""; flex:1; height:1px; background:#3b2f4a1f; }
+  .atajo { display:flex; align-items:center; gap:14px; text-align:left; text-decoration:none; color:var(--ink);
+           background:linear-gradient(135deg,#ece4ff,#ffe3ee); border-radius:20px; padding:14px 16px;
+           box-shadow:0 6px 18px #0000000f; transition:transform .15s, box-shadow .15s; }
+  .atajo:hover { transform:translateY(-3px); box-shadow:0 10px 22px #00000018; }
+  .atajo:active { transform:scale(.97); }
+  .atajo-em { font-size:2rem; filter:drop-shadow(0 3px 4px #0002); }
+  .atajo-tx { flex:1; line-height:1.25; }
+  .atajo-tx b { display:block; font-size:1rem; font-weight:900; }
+  .atajo-tx small { font-size:.78rem; color:var(--soft); font-weight:700; }
+  .atajo-fl { font-size:1.6rem; color:var(--soft); font-weight:900; }
   .gracias { color:var(--soft); font-size:.95rem; margin:4px 0 6px; min-height:1.2em; }
   .cambiar { background:none; border:none; color:var(--soft); font-family:inherit; font-size:.8rem;
              text-decoration:underline; cursor:pointer; margin-top:10px; }
@@ -147,6 +159,8 @@
       <button class="mood m-gris" onclick="elegirAnimo('gris')"><span>🌧️</span>Día gris</button>
       <button class="mood m-dificil" onclick="elegirAnimo('dificil')"><span>🫂</span>Día muy difícil</button>
     </div>
+    <p class="o-sino">o si prefieres, sin contarme nada</p>
+    <a class="atajo" href="juegos.html"><span class="atajo-em">🎮</span><span class="atajo-tx"><b>Sala de juegos</b><small>10 juegos para ganar fichas</small></span><span class="atajo-fl">›</span></a>
   </div>
   <div id="paso2" style="display:none">
   <p class="gracias" id="gracias"></p>
