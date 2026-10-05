@@ -1,5 +1,5 @@
 /* ============================================================
-   SALA DE JUEGOS — motor común + 10 juegos
+   SALA DE JUEGOS — motor común + 13 juegos
    ✏️ PERSONALIZA: META (puntos por ficha) y CANAL (ntfy)
    ============================================================ */
 const META = 1000;  // puntos para ganar una ficha (1 giro de ruleta)
@@ -885,6 +885,486 @@ JUEGOS.push({
     c.fillStyle = "#00000010"; c.fillRect(0, E.H - 4, E.W, 4);
   },
 });
+
+/* ============================================================
+   JUEGOS 11-13: Combina 3, Tetris Gomita y Pinball de Gomitas
+   ============================================================ */
+document.head.insertAdjacentHTML("beforeend", `<style>
+  .tbar { position:absolute; left:8px; right:8px; bottom:8px; display:flex; gap:8px; z-index:4; }
+  .tbar button { flex:1; height:52px; border:none; border-radius:16px; background:#ffffffe8; color:#3b2f4a; font-size:1.5rem;
+                 box-shadow:0 4px 12px #0002; touch-action:none; user-select:none; -webkit-user-select:none; cursor:pointer; }
+  .tbar button:active { background:#ffd6e2; transform:scale(.95); }
+</style>`);
+
+/* 11 ── Combina 3 ─────────────────────────────────────────── */
+JUEGOS.push({
+  id: "combina", nombre: "Combina 3", emoji: "🍭", tipo: "canvas", tiempo: 60, factor: 0.045,
+  color: "#ffe0ec", desc: "Junta 3 dulces iguales", fondo: "linear-gradient(#fff7fb,#ffe9f3)",
+  ayuda: "Toca un dulce y luego uno vecino (o deslízalo) para cambiarlos 🍬<br>Junta 3 o más iguales. ¡Las cascadas valen más!",
+  TIPOS: ["🍬", "🍭", "🍪", "🍩", "🧁", "🍓"],
+  init() {
+    this.cols = 7; this.geom(); this.generar();
+    this.sel = null; this.down = null; this.fase = "idle"; this.combo = 1; this.ocioT = 0; this.pista = null; this.t = 0;
+  },
+  geom() {
+    this.cel = Math.floor(E.W / this.cols);
+    this.rows = Math.max(5, Math.floor((E.H - 10) / this.cel));
+    this.ox = (E.W - this.cols * this.cel) / 2;
+    this.oy = (E.H - this.rows * this.cel) / 2;
+  },
+  resize() {
+    const f = this.rows; this.geom();
+    if (f !== this.rows) { this.generar(); this.fase = "idle"; this.sel = null; return; }
+    this.g.forEach(x => { if (x) { x.x = this.px(x.c); x.y = this.py(x.r); x.cae = false; x.vy = 0; } });
+  },
+  px(c) { return this.ox + c * this.cel + this.cel / 2; },
+  py(r) { return this.oy + r * this.cel + this.cel / 2; },
+  celda(r, c, k, filaVisual) { return { k, r, c, x: this.px(c), y: this.py(filaVisual != null ? filaVisual : r), vy: 0, esc: 1, muere: false, cae: false }; },
+  kEn(r, c) { const x = this.g[r * this.cols + c]; return x ? x.k : -1; },
+  generar() {
+    this.g = new Array(this.rows * this.cols).fill(null);
+    for (let r = 0; r < this.rows; r++) for (let c = 0; c < this.cols; c++) {
+      let k, n = 0;
+      do { k = Math.floor(Math.random() * this.TIPOS.length); n++; }
+      while (n < 40 && ((c >= 2 && this.kEn(r, c - 1) === k && this.kEn(r, c - 2) === k) || (r >= 2 && this.kEn(r - 1, c) === k && this.kEn(r - 2, c) === k)));
+      this.g[r * this.cols + c] = this.celda(r, c, k);
+    }
+    if (!this.buscarMov()) this.generar();
+  },
+  matriz() { const m = []; for (let r = 0; r < this.rows; r++) { m.push([]); for (let c = 0; c < this.cols; c++) m[r].push(this.kEn(r, c)); } return m; },
+  linea(m, r, c) {
+    const k = m[r][c]; if (k < 0) return false;
+    let h = 1, i = c - 1; while (i >= 0 && m[r][i] === k) { h++; i--; }
+    i = c + 1; while (i < this.cols && m[r][i] === k) { h++; i++; }
+    if (h >= 3) return true;
+    let v = 1; i = r - 1; while (i >= 0 && m[i][c] === k) { v++; i--; }
+    i = r + 1; while (i < this.rows && m[i][c] === k) { v++; i++; }
+    return v >= 3;
+  },
+  buscarMov() {
+    const m = this.matriz(), C = this.cols;
+    for (let r = 0; r < this.rows; r++) for (let c = 0; c < C; c++) for (const [dr, dc] of [[0, 1], [1, 0]]) {
+      const r2 = r + dr, c2 = c + dc; if (r2 >= this.rows || c2 >= C) continue;
+      [m[r][c], m[r2][c2]] = [m[r2][c2], m[r][c]];
+      const ok = this.linea(m, r, c) || this.linea(m, r2, c2);
+      [m[r][c], m[r2][c2]] = [m[r2][c2], m[r][c]];
+      if (ok) return [this.g[r * C + c], this.g[r2 * C + c2]];
+    }
+    return null;
+  },
+  hallar() {
+    const R = this.rows, C = this.cols, runs = [];
+    const get = (r, c) => { const x = this.g[r * C + c]; return x && !x.muere ? x.k : -1; };
+    for (let r = 0; r < R; r++) { let c = 0; while (c < C) { const k = get(r, c); let n = 1; while (k >= 0 && c + n < C && get(r, c + n) === k) n++; if (k >= 0 && n >= 3) runs.push(Array.from({ length: n }, (_, i) => r * C + c + i)); c += n; } }
+    for (let c = 0; c < C; c++) { let r = 0; while (r < R) { const k = get(r, c); let n = 1; while (k >= 0 && r + n < R && get(r + n, c) === k) n++; if (k >= 0 && n >= 3) runs.push(Array.from({ length: n }, (_, i) => (r + i) * C + c)); r += n; } }
+    return runs;
+  },
+  intercambiar(a, b, volver) {
+    const C = this.cols, ia = a.r * C + a.c, ib = b.r * C + b.c;
+    this.g[ia] = b; this.g[ib] = a;
+    [a.r, b.r] = [b.r, a.r]; [a.c, b.c] = [b.c, a.c];
+    this.fase = volver ? "volviendo" : "cambio"; this.par = [a, b]; this.sel = null; this.down = null; this.pista = null; this.ocioT = 0;
+    api.tono(volver ? 220 : 480, .05);
+  },
+  limpiar(runs) {
+    const set = new Set(); let pts = 0;
+    runs.forEach(run => { pts += run.length === 3 ? 15 : run.length === 4 ? 35 : 60; run.forEach(i => set.add(i)); });
+    pts *= this.combo;
+    set.forEach(i => { const x = this.g[i]; x.muere = true; api.chispas(x.x, x.y, "#f7a1b5", 7); });
+    const mitad = this.g[runs[0][Math.floor(runs[0].length / 2)]];
+    api.sumar(pts, mitad.x, mitad.y);
+    if (this.combo > 1) api.flota(E.W / 2, this.oy + 36, `¡Cascada x${this.combo}!`, "#e0a92b");
+    api.tono(520 + this.combo * 90, .09); api.vibrar(12);
+    this.fase = "limpiando";
+  },
+  caer() {
+    const R = this.rows, C = this.cols;
+    for (let c = 0; c < C; c++) {
+      let w = R - 1;
+      for (let r = R - 1; r >= 0; r--) {
+        const x = this.g[r * C + c];
+        if (x && !x.muere) { if (w !== r) { this.g[w * C + c] = x; this.g[r * C + c] = null; x.r = w; x.cae = true; } w--; }
+        else if (x) this.g[r * C + c] = null;
+      }
+      let n = 0;
+      for (let r = w; r >= 0; r--) {
+        const x = this.celda(r, c, Math.floor(Math.random() * this.TIPOS.length), -(++n));
+        x.cae = true; this.g[r * C + c] = x;
+      }
+    }
+    this.fase = "cayendo";
+  },
+  update(dt) {
+    this.t += dt;
+    const ease = 1 - Math.exp(-dt * 16);
+    let quieto = true;
+    for (const x of this.g) {
+      if (!x) continue;
+      const tx = this.px(x.c), ty = this.py(x.r);
+      if (x.cae) {
+        x.vy += 2600 * dt; x.y += x.vy * dt; x.x = tx;
+        if (x.y >= ty) { x.y = ty; x.vy = 0; x.cae = false; } else quieto = false;
+      } else {
+        x.x += (tx - x.x) * ease; x.y += (ty - x.y) * ease;
+        if (Math.abs(tx - x.x) > .6 || Math.abs(ty - x.y) > .6) quieto = false; else { x.x = tx; x.y = ty; }
+      }
+      if (x.muere) { x.esc -= dt * 6; if (x.esc > 0) quieto = false; else x.esc = 0; }
+    }
+    if (!quieto) return;
+    if (this.fase === "cambio") {
+      const runs = this.hallar();
+      if (runs.length) { this.combo = 1; this.limpiar(runs); } else { this.intercambiar(this.par[0], this.par[1], true); api.vibrar(20); }
+    } else if (this.fase === "volviendo") { this.fase = "idle"; }
+    else if (this.fase === "limpiando") { this.caer(); }
+    else if (this.fase === "cayendo") {
+      const runs = this.hallar();
+      if (runs.length) { this.combo++; this.limpiar(runs); }
+      else {
+        this.combo = 1; this.fase = "idle";
+        if (!this.buscarMov()) { api.flota(E.W / 2, E.H / 2, "¡Mezclando!", "#7a5bbd"); this.generar(); }
+      }
+    } else {
+      this.ocioT += dt;
+      if (this.ocioT > 5 && !this.pista) this.pista = this.buscarMov();
+    }
+  },
+  celdaEn(x, y) {
+    const c = Math.floor((x - this.ox) / this.cel), r = Math.floor((y - this.oy) / this.cel);
+    if (c < 0 || c >= this.cols || r < 0 || r >= this.rows) return null;
+    return this.g[r * this.cols + c];
+  },
+  tocar(x, y, tipo) {
+    if (tipo !== "abajo" || this.fase !== "idle") return;
+    const c = this.celdaEn(x, y); if (!c) return;
+    this.ocioT = 0; this.pista = null;
+    if (this.sel && this.sel !== c && Math.abs(this.sel.r - c.r) + Math.abs(this.sel.c - c.c) === 1) { const s = this.sel; this.intercambiar(s, c); }
+    else { this.sel = c; this.down = c; }
+  },
+  deslizar(dir) {
+    if (!this.down || this.fase !== "idle") return;
+    const d = { izq: [0, -1], der: [0, 1], arriba: [-1, 0], abajo: [1, 0] }[dir];
+    const r = this.down.r + d[0], c = this.down.c + d[1];
+    if (r < 0 || c < 0 || r >= this.rows || c >= this.cols) return;
+    const nb = this.g[r * this.cols + c]; if (!nb) return;
+    this.intercambiar(this.down, nb);
+  },
+  draw(c) {
+    const cel = this.cel;
+    c.textAlign = "center"; c.textBaseline = "middle";
+    c.fillStyle = "rgba(255,255,255,.55)";
+    for (let r = 0; r < this.rows; r++) for (let k = 0; k < this.cols; k++) { c.beginPath(); c.roundRect(this.ox + k * cel + 2, this.oy + r * cel + 2, cel - 4, cel - 4, 10); c.fill(); }
+    if (this.pista) {
+      const a = .35 + .35 * Math.sin(this.t * 6);
+      c.strokeStyle = `rgba(224,169,43,${a})`; c.lineWidth = 4;
+      this.pista.forEach(x => { c.beginPath(); c.roundRect(this.ox + x.c * cel + 3, this.oy + x.r * cel + 3, cel - 6, cel - 6, 10); c.stroke(); });
+    }
+    for (const x of this.g) {
+      if (!x) continue;
+      c.save(); c.translate(x.x, x.y);
+      const s = x.esc * (this.sel === x ? 1.14 : 1); c.scale(s, s);
+      c.font = `${Math.round(cel * .62)}px serif`; c.fillText(this.TIPOS[x.k], 0, 2);
+      c.restore();
+    }
+    if (this.sel) { c.strokeStyle = "#e8798f"; c.lineWidth = 4; c.beginPath(); c.roundRect(this.ox + this.sel.c * cel + 3, this.oy + this.sel.r * cel + 3, cel - 6, cel - 6, 10); c.stroke(); }
+  },
+});
+
+/* 12 ── Tetris Gomita ─────────────────────────────────────── */
+JUEGOS.push({
+  id: "tetris", nombre: "Tetris Gomita", emoji: "🍡", tipo: "canvas", tiempo: null, factor: 0.1,
+  color: "#e5eaff", desc: "Piezas de gomita", fondo: "linear-gradient(#f6f8ff,#e6ebff)", medio: "🍡",
+  ayuda: "Mueve y gira las piezas con los botones o deslizando 🍡<br>Completa filas para que desaparezcan. Cada vez cae más rápido",
+  PIEZAS: [
+    { m: [[0, 0, 0, 0], [1, 1, 1, 1], [0, 0, 0, 0], [0, 0, 0, 0]], c: ["#a6e6ff", "#4bb6e8"] },
+    { m: [[1, 1], [1, 1]], c: ["#ffe58f", "#f2b705"] },
+    { m: [[0, 1, 0], [1, 1, 1], [0, 0, 0]], c: ["#e0bfff", "#9a5fe0"] },
+    { m: [[0, 1, 1], [1, 1, 0], [0, 0, 0]], c: ["#bdf5b6", "#4fc25a"] },
+    { m: [[1, 1, 0], [0, 1, 1], [0, 0, 0]], c: ["#ffbcbc", "#e5545a"] },
+    { m: [[1, 0, 0], [1, 1, 1], [0, 0, 0]], c: ["#b3c4ff", "#4d6fe0"] },
+    { m: [[0, 0, 1], [1, 1, 1], [0, 0, 0]], c: ["#ffd6ab", "#f0873a"] },
+  ],
+  init() {
+    this.cols = 10; this.rows = 18; this.geom();
+    this.b = Array.from({ length: this.rows }, () => Array(this.cols).fill(0));
+    this.bolsa = []; this.sig = null; this.lineas = 0; this.nivel = 0; this.t = 0; this.bloq = 0; this.fin = false; this.activo = false; this.hubo = false;
+    this.nueva();
+    // botones táctiles
+    const bar = document.createElement("div"); bar.className = "tbar";
+    const defs = [["◀", () => this.mover(-1), true], ["⟳", () => this.girar(), false], ["▶", () => this.mover(1), true], ["⏬", () => this.caerDuro(), false]];
+    defs.forEach(([txt, fn, rep]) => {
+      const b = document.createElement("button"); b.textContent = txt; b.setAttribute("aria-label", txt);
+      let t1 = null, t2 = null;
+      const parar = () => { clearTimeout(t1); clearInterval(t2); t1 = t2 = null; };
+      b.addEventListener("pointerdown", e => {
+        e.preventDefault(); e.stopPropagation();
+        if (!E.corriendo || E.pausa) return;
+        fn();
+        if (rep) { parar(); t1 = luego(() => { t2 = cadaTanto(() => { if (E.corriendo && !E.pausa) fn(); }, 75); }, 200); }
+      });
+      ["pointerup", "pointerleave", "pointercancel"].forEach(ev => b.addEventListener(ev, parar));
+      bar.appendChild(b);
+    });
+    E.zona.appendChild(bar); this.bar = bar;
+  },
+  destroy() { if (this.bar) { this.bar.remove(); this.bar = null; } },
+  geom() {
+    this.cel = Math.max(12, Math.floor(Math.min((E.H - 92) / this.rows, (E.W - 118) / this.cols)));
+    this.ox = 8; this.oy = 8;
+  },
+  resize() { this.geom(); },
+  sacar() {
+    if (!this.bolsa.length) { this.bolsa = [0, 1, 2, 3, 4, 5, 6]; for (let i = 6; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [this.bolsa[i], this.bolsa[j]] = [this.bolsa[j], this.bolsa[i]]; } }
+    return this.bolsa.pop();
+  },
+  nueva() {
+    const k = this.sig != null ? this.sig : this.sacar();
+    this.sig = this.sacar();
+    const m = this.PIEZAS[k].m.map(f => f.slice());
+    this.p = { k, m, x: Math.floor((this.cols - m[0].length) / 2), y: m[0].every(v => !v) ? -1 : 0 };
+    this.t = 0; this.bloq = 0;
+    if (this.choca(this.p.m, this.p.x, this.p.y)) { this.fin = true; api.sacudir(10); api.tono(120, .3, "sawtooth"); api.vibrar(100); api.fin(); }
+  },
+  rot(m) { const n = m.length, r = []; for (let i = 0; i < n; i++) { r.push([]); for (let j = 0; j < n; j++) r[i].push(m[n - 1 - j][i]); } return r; },
+  choca(m, x, y) {
+    for (let i = 0; i < m.length; i++) for (let j = 0; j < m[i].length; j++) if (m[i][j]) {
+      const bx = x + j, by = y + i;
+      if (bx < 0 || bx >= this.cols || by >= this.rows) return true;
+      if (by >= 0 && this.b[by][bx]) return true;
+    }
+    return false;
+  },
+  mover(dx) { if (this.fin) return; if (!this.choca(this.p.m, this.p.x + dx, this.p.y)) { this.p.x += dx; this.bloq = 0; api.tono(300, .02, "triangle"); } },
+  girar() {
+    if (this.fin) return;
+    const m = this.rot(this.p.m);
+    for (const dx of [0, -1, 1, -2, 2]) if (!this.choca(m, this.p.x + dx, this.p.y)) { this.p.m = m; this.p.x += dx; this.bloq = 0; api.tono(430, .03); return; }
+  },
+  bajar() { if (!this.choca(this.p.m, this.p.x, this.p.y + 1)) { this.p.y++; return true; } return false; },
+  caerDuro() { if (this.fin) return; let n = 0; while (this.bajar()) n++; if (n) api.vibrar(10); this.fijar(); },
+  fijar() {
+    const { m, x, y, k } = this.p;
+    for (let i = 0; i < m.length; i++) for (let j = 0; j < m[i].length; j++) if (m[i][j]) {
+      const by = y + i;
+      if (by < 0) { this.fin = true; api.fin(); return; }
+      this.b[by][x + j] = k + 1;
+    }
+    api.tono(220, .04, "triangle");
+    let n = 0;
+    for (let r = this.rows - 1; r >= 0; r--) {
+      if (this.b[r].every(v => v)) {
+        for (let c = 0; c < this.cols; c++) api.chispas(this.ox + c * this.cel + this.cel / 2, this.oy + r * this.cel + this.cel / 2, this.PIEZAS[this.b[r][c] - 1].c[1], 2);
+        this.b.splice(r, 1); this.b.unshift(Array(this.cols).fill(0)); n++; r++;
+      }
+    }
+    let pts = 1;
+    if (n) {
+      pts += [0, 10, 30, 60, 100][n] * (1 + this.nivel * .15);
+      this.lineas += n; this.nivel = Math.floor(this.lineas / 8);
+      api.tono(520 + n * 120, .12); api.vibrar(n * 14); if (n === 4) { api.sacudir(8); api.flota(E.W / 2, E.H / 2, "¡TETRIS!", "#e0a92b"); }
+    }
+    api.sumar(Math.round(pts), n ? E.W / 2 : undefined, n ? E.H / 2 : undefined);
+    this.nueva();
+  },
+  update(dt) {
+    if (this.fin) return;
+    api.hud(undefined, `Nv ${this.nivel + 1} · ${this.lineas} filas`);
+    this.t += dt;
+    const inter = Math.max(.06, .68 * Math.pow(.8, this.nivel));
+    while (this.t >= inter && !this.fin) {
+      this.t -= inter;
+      if (this.bajar()) this.bloq = 0;
+      else { this.bloq += inter; if (this.bloq >= .45) { this.fijar(); break; } }
+    }
+  },
+  tocar(x, y, tipo) {
+    if (tipo === "abajo") { this.activo = true; this.hubo = false; this.x0 = x; this.y0 = y; }
+    else if (tipo === "arriba" && this.activo) {
+      this.activo = false;
+      if (!this.hubo && Math.hypot(x - this.x0, y - this.y0) < 14) this.girar();
+    }
+  },
+  deslizar(dir) {
+    this.hubo = true;
+    if (dir === "izq") this.mover(-1); else if (dir === "der") this.mover(1);
+    else if (dir === "arriba") this.girar(); else if (dir === "abajo") this.caerDuro();
+  },
+  gomita(c, x, y, s, col, a) {
+    c.globalAlpha = a == null ? 1 : a;
+    const g = c.createLinearGradient(x, y, x, y + s); g.addColorStop(0, col[0]); g.addColorStop(1, col[1]);
+    c.fillStyle = g; c.beginPath(); c.roundRect(x + 1, y + 1, s - 2, s - 2, s * .3); c.fill();
+    c.fillStyle = "rgba(255,255,255,.6)"; c.beginPath(); c.ellipse(x + s * .34, y + s * .3, s * .16, s * .09, -.5, 0, 7); c.fill();
+    c.globalAlpha = 1;
+  },
+  draw(c) {
+    const cel = this.cel, ox = this.ox, oy = this.oy, W = this.cols * cel, H = this.rows * cel;
+    c.fillStyle = "rgba(255,255,255,.7)"; c.beginPath(); c.roundRect(ox - 4, oy - 4, W + 8, H + 8, 12); c.fill();
+    c.fillStyle = "rgba(122,107,138,.10)";
+    for (let r = 0; r < this.rows; r++) for (let k = 0; k < this.cols; k++) c.fillRect(ox + k * cel + cel / 2 - 1, oy + r * cel + cel / 2 - 1, 2, 2);
+    for (let r = 0; r < this.rows; r++) for (let k = 0; k < this.cols; k++) if (this.b[r][k]) this.gomita(c, ox + k * cel, oy + r * cel, cel, this.PIEZAS[this.b[r][k] - 1].c);
+    if (this.p && !this.fin) {
+      let gy = this.p.y; while (!this.choca(this.p.m, this.p.x, gy + 1)) gy++;
+      const col = this.PIEZAS[this.p.k].c;
+      this.p.m.forEach((fila, i) => fila.forEach((v, j) => {
+        if (!v) return;
+        if (gy !== this.p.y && gy + i >= 0) this.gomita(c, ox + (this.p.x + j) * cel, oy + (gy + i) * cel, cel, col, .22);
+      }));
+      this.p.m.forEach((fila, i) => fila.forEach((v, j) => { if (v && this.p.y + i >= 0) this.gomita(c, ox + (this.p.x + j) * cel, oy + (this.p.y + i) * cel, cel, col); }));
+    }
+    // panel lateral
+    const px = ox + W + 16, pw = E.W - px - 8;
+    c.textAlign = "center"; c.textBaseline = "alphabetic";
+    c.fillStyle = "#7a6b8a"; c.font = "900 12px Nunito, sans-serif"; c.fillText("SIGUIENTE", px + pw / 2, oy + 14);
+    c.fillStyle = "rgba(255,255,255,.7)"; c.beginPath(); c.roundRect(px, oy + 22, pw, pw * .8, 12); c.fill();
+    if (this.sig != null) {
+      const m = this.PIEZAS[this.sig].m, s = Math.min(22, Math.floor(pw / 5)), n = m.length;
+      const ancho = n * s, x0 = px + (pw - ancho) / 2, y0 = oy + 22 + (pw * .8 - n * s) / 2 - (this.sig === 0 ? s * .5 : 0);
+      m.forEach((fila, i) => fila.forEach((v, j) => { if (v) this.gomita(c, x0 + j * s, y0 + i * s, s, this.PIEZAS[this.sig].c); }));
+    }
+    c.fillStyle = "#7a6b8a"; c.font = "900 12px Nunito, sans-serif"; c.fillText("FILAS", px + pw / 2, oy + pw * .8 + 62);
+    c.fillStyle = "#3b2f4a"; c.font = "900 30px Nunito, sans-serif"; c.fillText(String(this.lineas), px + pw / 2, oy + pw * .8 + 94);
+    c.fillStyle = "#7a6b8a"; c.font = "900 12px Nunito, sans-serif"; c.fillText("NIVEL", px + pw / 2, oy + pw * .8 + 128);
+    c.fillStyle = "#3b2f4a"; c.font = "900 30px Nunito, sans-serif"; c.fillText(String(this.nivel + 1), px + pw / 2, oy + pw * .8 + 160);
+  },
+});
+
+/* 13 ── Pinball de Gomitas ────────────────────────────────── */
+JUEGOS.push({
+  id: "pinball", nombre: "Pinball de Gomitas", emoji: "🎱", tipo: "canvas", tiempo: null, factor: 0.1,
+  color: "#eadfff", desc: "Que no se caiga la bolita", fondo: "linear-gradient(#faf5ff,#ebe0ff)", medio: "🎱",
+  ayuda: "Toca la mitad izquierda o derecha para mover cada paleta 🎱<br>Golpea los dulces para sumar. ¡Tienes 3 bolitas!",
+  BUMP: ["🍬", "🍭", "🍩", "🍪"],
+  init() {
+    this.geom(); this.vidas = 3; this.combo = 0; this.comboT = 0; this.t = 0; this.espera = 0; this.hudV = -1; this.ptrs = new Map(); this.ball = null;
+    this.lanzar();
+    const z = E.zona;
+    this._d = e => { if (!E.corriendo || E.pausa) return; const r = z.getBoundingClientRect(); this.ptrs.set(e.pointerId, e.clientX - r.left < E.W / 2 ? "izq" : "der"); this.sync(); };
+    this._u = e => { if (this.ptrs.delete(e.pointerId)) this.sync(); };
+    z.addEventListener("pointerdown", this._d); addEventListener("pointerup", this._u); addEventListener("pointercancel", this._u);
+  },
+  destroy() {
+    if (this._d) { E.zona.removeEventListener("pointerdown", this._d); removeEventListener("pointerup", this._u); removeEventListener("pointercancel", this._u); this._d = null; }
+  },
+  sync() { const l = new Set(this.ptrs.values()); this.fl.izq.activo = l.has("izq"); this.fl.der.activo = l.has("der"); },
+  geom() {
+    const W = E.W, H = E.H, prev = this.fl;
+    this.r = Math.max(7, W * .024);
+    const py = H - Math.max(60, H * .13);
+    this.fl = {
+      izq: { s: 1, px: W * .27, py, L: W * .2, ang: .5, w: 0, activo: prev ? prev.izq.activo : false },
+      der: { s: -1, px: W * .73, py, L: W * .2, ang: .5, w: 0, activo: prev ? prev.der.activo : false },
+    };
+    this.gI = [0, py - H * .2, this.fl.izq.px, py];
+    this.gD = [W, py - H * .2, this.fl.der.px, py];
+    const R = Math.max(18, W * .062);
+    this.bump = [
+      { x: W * .27, y: H * .27, r: R, p: 0 }, { x: W * .73, y: H * .27, r: R, p: 0 },
+      { x: W * .5, y: H * .15, r: R, p: 0 }, { x: W * .5, y: H * .39, r: R, p: 0 },
+    ];
+  },
+  resize() { this.geom(); if (this.ball) { this.ball.x = Math.min(E.W - this.r, this.ball.x); this.ball.y = Math.min(E.H - this.r, this.ball.y); } },
+  lanzar() { this.ball = { x: E.W * (.3 + Math.random() * .4), y: this.r + 6, vx: (Math.random() - .5) * 180, vy: 90 }; },
+  punta(f) { return { x: f.px + f.s * f.L * Math.cos(f.ang), y: f.py + f.L * Math.sin(f.ang) }; },
+  moverPaletas(dt) {
+    for (const f of [this.fl.izq, this.fl.der]) {
+      const obj = f.activo ? -.5 : .5, d = obj - f.ang;
+      const paso = Math.sign(d) * Math.min(Math.abs(d), 24 * dt);
+      f.ang += paso; f.w = dt > 0 ? paso / dt : 0;
+    }
+  },
+  update(dt) {
+    this.t += dt; this.comboT -= dt; if (this.comboT <= 0) this.combo = 0;
+    if (this.hudV !== this.vidas) { this.hudV = this.vidas; api.hud(undefined, "🎱 ×" + this.vidas); }
+    this.bump.forEach(u => { u.p = Math.max(0, u.p - dt * 4); });
+    this.moverPaletas(dt);
+    if (!this.ball) { this.espera -= dt; if (this.espera <= 0) this.lanzar(); return; }
+    const n = 4, h = dt / n;
+    for (let i = 0; i < n && this.ball; i++) this.paso(h);
+    if (this.ball) {
+      const b = this.ball;
+      this.quietoT = Math.hypot(b.vx, b.vy) < 30 ? (this.quietoT || 0) + dt : 0;
+      if (this.quietoT > 1.2) {
+        this.quietoT = 0; b.vy = -460; b.vx = (Math.random() < .5 ? -1 : 1) * (80 + Math.random() * 90);
+        api.flota(b.x, Math.max(30, b.y - 30), "¡Empujón!", "#7a5bbd"); api.tono(330, .08);
+      }
+    }
+  },
+  seg(b, ax, ay, bx, by, rad, e, f) {
+    const r = this.r, abx = bx - ax, aby = by - ay, l2 = abx * abx + aby * aby;
+    let t = ((b.x - ax) * abx + (b.y - ay) * aby) / l2; t = Math.max(0, Math.min(1, t));
+    const cx = ax + abx * t, cy = ay + aby * t, dx = b.x - cx, dy = b.y - cy, d = Math.hypot(dx, dy), m = r + rad;
+    if (d >= m || d === 0) return false;
+    const nx = dx / d, ny = dy / d; b.x = cx + nx * m; b.y = cy + ny * m;
+    let sx = 0, sy = 0;
+    if (f) { const dist = Math.hypot(cx - f.px, cy - f.py); sx = dist * f.w * (-f.s * Math.sin(f.ang)); sy = dist * f.w * Math.cos(f.ang); }
+    const rvx = b.vx - sx, rvy = b.vy - sy, vn = rvx * nx + rvy * ny;
+    if (vn < 0) { b.vx = rvx - (1 + e) * vn * nx + sx; b.vy = rvy - (1 + e) * vn * ny + sy; }
+    return true;
+  },
+  paso(h) {
+    const b = this.ball, W = E.W, H = E.H, r = this.r;
+    b.vy += 780 * h; b.x += b.vx * h; b.y += b.vy * h;
+    const sp = Math.hypot(b.vx, b.vy); if (sp > 1000) { b.vx *= 1000 / sp; b.vy *= 1000 / sp; }
+    if (b.x < r) { b.x = r; b.vx = Math.abs(b.vx) * .85; }
+    if (b.x > W - r) { b.x = W - r; b.vx = -Math.abs(b.vx) * .85; }
+    if (b.y < r) { b.y = r; b.vy = Math.abs(b.vy) * .85; }
+    this.bump.forEach((u, i) => {
+      const dx = b.x - u.x, dy = b.y - u.y, d = Math.hypot(dx, dy), m = r + u.r;
+      if (d < m && d > 0) {
+        const nx = dx / d, ny = dy / d; b.x = u.x + nx * m; b.y = u.y + ny * m;
+        const vn = b.vx * nx + b.vy * ny;
+        if (vn < 0) { b.vx -= 2.15 * vn * nx; b.vy -= 2.15 * vn * ny; }
+        const s = Math.hypot(b.vx, b.vy); if (s < 380) { b.vx *= 380 / s; b.vy *= 380 / s; }
+        this.golpe(u, i);
+      }
+    });
+    this.seg(b, this.gI[0], this.gI[1], this.gI[2], this.gI[3], 6, .4, null);
+    this.seg(b, this.gD[0], this.gD[1], this.gD[2], this.gD[3], 6, .4, null);
+    for (const f of [this.fl.izq, this.fl.der]) { const p = this.punta(f); this.seg(b, f.px, f.py, p.x, p.y, 6, .35, f); }
+    if (b.y > H + r * 2) this.perdio();
+  },
+  golpe(u, i) {
+    this.combo = Math.min(5, this.combo + 1); this.comboT = 2.2; u.p = 1;
+    api.sumar(5 * this.combo, u.x, u.y - u.r);
+    api.chispas(u.x, u.y, "#c9a0ff", 9); api.tono(480 + this.combo * 60, .06); api.vibrar(8);
+  },
+  perdio() {
+    this.ball = null; this.vidas--; api.sacudir(8); api.tono(160, .2, "sawtooth"); api.vibrar(60);
+    if (this.vidas <= 0) { api.fin(); return; }
+    this.espera = .9;
+  },
+  draw(c) {
+    const W = E.W;
+    c.lineCap = "round";
+    c.strokeStyle = "#c9a0ff"; c.lineWidth = 12;
+    [this.gI, this.gD].forEach(g => { c.beginPath(); c.moveTo(g[0], g[1]); c.lineTo(g[2], g[3]); c.stroke(); });
+    c.textAlign = "center"; c.textBaseline = "middle";
+    this.bump.forEach((u, i) => {
+      const k = 1 + u.p * .18;
+      const g = c.createRadialGradient(u.x - u.r * .3, u.y - u.r * .3, 2, u.x, u.y, u.r * k);
+      g.addColorStop(0, "#ffffff"); g.addColorStop(1, u.p > 0 ? "#ffd1e8" : "#e0c3fc");
+      c.fillStyle = g; c.beginPath(); c.arc(u.x, u.y, u.r * k, 0, 7); c.fill();
+      c.strokeStyle = "#b690ee"; c.lineWidth = 3; c.stroke();
+      c.font = `${Math.round(u.r * 1.15 * k)}px serif`; c.fillText(this.BUMP[i], u.x, u.y + 2);
+    });
+    for (const f of [this.fl.izq, this.fl.der]) {
+      const p = this.punta(f);
+      c.strokeStyle = "#e8798f"; c.lineWidth = 14; c.beginPath(); c.moveTo(f.px, f.py); c.lineTo(p.x, p.y); c.stroke();
+      c.fillStyle = "#fff"; c.beginPath(); c.arc(f.px, f.py, 4, 0, 7); c.fill();
+    }
+    if (this.ball) {
+      const b = this.ball, g = c.createRadialGradient(b.x - 3, b.y - 3, 1, b.x, b.y, this.r);
+      g.addColorStop(0, "#ffffff"); g.addColorStop(1, "#9aa3b8");
+      c.fillStyle = g; c.beginPath(); c.arc(b.x, b.y, this.r, 0, 7); c.fill();
+    }
+    if (this.t < 5) {
+      c.globalAlpha = Math.max(0, Math.min(1, 5 - this.t));
+      c.fillStyle = "#7a6b8a"; c.font = "800 15px Nunito, sans-serif";
+      c.fillText("👈 toca el lado izquierdo · el derecho 👉", W / 2, E.H * .56);
+      c.globalAlpha = 1;
+    }
+  },
+});
+
 
 /* ============================================================
    HUB
