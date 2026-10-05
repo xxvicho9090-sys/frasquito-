@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Frasco de Mensajes</title>
 <link rel="manifest" href="manifest.webmanifest">
-<meta name="theme-color" content="#e8798f">
+<meta name="theme-color" content="#e4002b">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
@@ -146,6 +146,7 @@
            animation:spark 3s ease-in-out infinite; opacity:.7; z-index:0; }
   @keyframes spark { 50% { opacity:0; transform:scale(.3); } }
 </style>
+<link rel="stylesheet" href="kawaii.css">
 </head>
 <body>
 <div class="card">
@@ -191,15 +192,15 @@
         <rect x="56" y="62" width="118" height="20" rx="6" fill="#ffffff" opacity=".55" stroke="#fff"/>
         <!-- etiqueta -->
         <g transform="rotate(-4 115 190)">
-          <rect x="70" y="170" width="90" height="40" rx="6" fill="#fffaf0" stroke="#e8798f" stroke-width="1.5" stroke-dasharray="4 3"/>
-          <text x="115" y="196" text-anchor="middle" font-family="Caveat" font-size="22" fill="#e8798f">para ti</text>
+          <rect x="70" y="170" width="90" height="40" rx="6" fill="#fffaf0" stroke="#e4002b" stroke-width="1.5" stroke-dasharray="4 3"/>
+          <text x="115" y="196" text-anchor="middle" font-family="Caveat" font-size="22" fill="#e4002b">para ti</text>
         </g>
       </g>
       <g id="lid">
         <rect x="62" y="28" width="106" height="38" rx="8" fill="url(#cork)"/>
         <g fill="#9c6b3f" opacity=".45"><circle cx="80" cy="40" r="2"/><circle cx="100" cy="52" r="1.6"/><circle cx="130" cy="38" r="2"/><circle cx="150" cy="55" r="1.8"/><circle cx="118" cy="47" r="1.4"/></g>
-        <path d="M60 58 Q115 70 170 58" stroke="#e8798f" stroke-width="4" fill="none"/>
-        <path d="M115 64 q-18 -14 -22 4 q10 4 22 -4 q18 -14 22 4 q-10 4 -22 -4" fill="#f29bb0"/>
+        <path d="M60 58 Q115 70 170 58" stroke="#e4002b" stroke-width="4" fill="none"/>
+        <path d="M115 62 C101 44 80 46 82 62 C84 78 104 78 115 62Z M115 62 C129 44 150 46 148 62 C146 78 126 78 115 62Z" fill="#e4002b" stroke="#b30022" stroke-width="1.5" stroke-linejoin="round"/><rect x="108" y="55" width="14" height="14" rx="5" fill="#e4002b" stroke="#b30022" stroke-width="1.5"/>
       </g>
     </svg>
   </div>
@@ -644,6 +645,7 @@ function llover(emojis) {
   }
 }
 </script>
+<script src="kawaii.js" defer></script>
 <script src="pwa.js" defer></script>
 </body>
 </html>

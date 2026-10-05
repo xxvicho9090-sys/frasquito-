@@ -6,16 +6,49 @@
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#fbf4f7",
-  "theme_color": "#e8798f",
+  "background_color": "#ffe3ea",
+  "theme_color": "#e4002b",
   "lang": "es-CL",
   "icons": [
-    { "src": "icono-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
-    { "src": "icono-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
-    { "src": "icono-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+    {
+      "src": "icono-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icono-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icono-maskable.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
   ],
   "shortcuts": [
-    { "name": "Sala de juegos", "url": "juegos.html", "icons": [{ "src": "icono-192.png", "sizes": "192x192" }] },
-    { "name": "Ruleta de cupones", "url": "ruleta.html", "icons": [{ "src": "icono-192.png", "sizes": "192x192" }] }
+    {
+      "name": "Sala de juegos",
+      "url": "juegos.html",
+      "icons": [
+        {
+          "src": "icono-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "Ruleta de cupones",
+      "url": "ruleta.html",
+      "icons": [
+        {
+          "src": "icono-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    }
   ]
 }

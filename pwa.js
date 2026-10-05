@@ -1,6 +1,6 @@
 /* App instalable: instalación, sin internet y actualización automática */
 (function () {
-  const PAGINAS = ["index.html", "juegos.html", "juegos.js", "ruleta.html", "comida.html", "aburrida.html"];
+  const PAGINAS = ["index.html", "juegos.html", "juegos.js", "ruleta.html", "comida.html", "aburrida.html", "kawaii.css", "kawaii.js"];
   const leer = (k, d) => { try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch { return d; } };
   const esc = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} };
   const esIndex = /\/(index\.html)?$/.test(location.pathname);

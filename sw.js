@@ -1,8 +1,8 @@
 /* Service worker: deja el sitio funcionando sin internet y siempre trae lo último */
-const CACHE = "frasco-v1";
+const CACHE = "frasco-v2";
 const ARCHIVOS = [
   "./", "./index.html", "./juegos.html", "./juegos.js", "./ruleta.html", "./comida.html", "./aburrida.html",
-  "./pwa.js", "./manifest.webmanifest", "./icono-192.png", "./icono-512.png", "./icono-maskable.png",
+  "./pwa.js", "./kawaii.css", "./kawaii.js", "./manifest.webmanifest", "./icono-192.png", "./icono-512.png", "./icono-maskable.png",
 ];
 
 self.addEventListener("install", e => {

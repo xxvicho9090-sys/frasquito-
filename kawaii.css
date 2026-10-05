@@ -1,0 +1,70 @@
+@import url("https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&display=swap");
+/* ───────── Tema kawaii rojo y blanco ───────── */
+:root {
+  --kt-rojo:#e4002b; --kt-rojo-osc:#b30022; --kt-rosa:#ffb3c6; --kt-rosa-suave:#ffe3ea; --kt-crema:#fff8f5; --kt-amarillo:#ffd54a;
+  --accent:#e4002b; --ink:#4a2a33; --soft:#9a6b78;
+}
+html { background:#ffd9e2; }
+body {
+  background:
+    radial-gradient(circle, #ffffffcc 2.6px, transparent 3.2px) 0 0 / 28px 28px,
+    radial-gradient(circle, #ffffff88 2px, transparent 2.6px) 14px 14px / 28px 28px,
+    linear-gradient(165deg, #ffe3ea 0%, #ffc4d3 55%, #fff1f4 100%) !important;
+  background-attachment: fixed !important;
+  color: var(--ink);
+}
+h1, .top h1 {
+  font-family: "Fredoka", "Nunito", system-ui, sans-serif !important; font-weight:700 !important; letter-spacing:.2px;
+  color: var(--kt-rojo) !important; text-shadow: 0 2px 0 #fff, 0 4px 10px #ff9db455;
+}
+h1::before { content:""; display:inline-block; width:1.15em; height:.72em; margin-right:.28em; vertical-align:-.02em;
+  background:url("data:image/svg+xml,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20viewBox=%220%200%2064%2040%22%3E%3Cpath%20d=%22M32%2020C21%201%202%203%203%2020c1%2017%2020%2019%2029%200z%22%20fill=%22%23e4002b%22%20stroke=%22%23b30022%22%20stroke-width=%221.6%22%20stroke-linejoin=%22round%22/%3E%3Cpath%20d=%22M32%2020C43%201%2062%203%2061%2020c-1%2017-20%2019-29%200z%22%20fill=%22%23e4002b%22%20stroke=%22%23b30022%22%20stroke-width=%221.6%22%20stroke-linejoin=%22round%22/%3E%3Cellipse%20cx=%2214%22%20cy=%2213%22%20rx=%225%22%20ry=%222.6%22%20fill=%22%23ffffff%22%20opacity=%22.55%22%20transform=%22rotate%28-25%2014%2013%29%22/%3E%3Cellipse%20cx=%2250%22%20cy=%2213%22%20rx=%225%22%20ry=%222.6%22%20fill=%22%23ffffff%22%20opacity=%22.55%22%20transform=%22rotate%2825%2050%2013%29%22/%3E%3Crect%20x=%2226%22%20y=%2213.5%22%20width=%2212%22%20height=%2213%22%20rx=%224.5%22%20fill=%22%23e4002b%22%20stroke=%22%23b30022%22%20stroke-width=%221.6%22/%3E%3C/svg%3E") center / contain no-repeat; }
+.top h1::before { width:1em; height:.62em; }
+h2 { font-family:"Fredoka","Caveat",cursive; }
+.sub { color:#9a5a6a; }
+
+/* botones principales */
+.btn:not(.alt):not(.oro):not(.listo), .dado, .hub, .mood, button.small:not(.alt) {
+  --x:0;
+}
+.btn:not(.alt):not(.oro):not(.listo) {
+  background:linear-gradient(180deg,#ff4f6e,#e4002b) !important; color:#fff !important;
+  box-shadow:0 6px 0 #b30022, 0 10px 18px #e4002b44 !important; border:2px solid #fff !important;
+  font-family:"Fredoka","Nunito",sans-serif; letter-spacing:.2px;
+}
+.btn:not(.alt):not(.oro):not(.listo):active { transform:translateY(4px) !important; box-shadow:0 2px 0 #b30022, 0 4px 10px #e4002b44 !important; }
+.btn.alt { background:#fff !important; color:var(--kt-rojo) !important; border:2px solid var(--kt-rosa) !important; box-shadow:0 4px 0 var(--kt-rosa) !important; }
+.link, .atajo { border:2px solid var(--kt-rosa); }
+.cambiar { color:#b3556b !important; }
+.link { background:#fff !important; color:var(--kt-rojo) !important; font-weight:800; }
+.atajo { background:linear-gradient(135deg,#fff,#ffe3ea) !important; box-shadow:0 5px 0 var(--kt-rosa) !important; }
+.atajo-fl { color:var(--kt-rojo) !important; }
+.o-sino { color:#b3556b; }
+
+/* ánimo, tarjetas y juegos */
+.mood { border:3px solid #fff !important; box-shadow:0 5px 0 #ffc4d3, 0 10px 18px #e4002b1f !important; }
+.game { border:3px solid #fff; box-shadow:0 5px 0 #ffc4d3, 0 10px 18px #e4002b1f !important; }
+.game b { font-family:"Fredoka","Nunito",sans-serif; }
+.chip, .progress, .prog, .hud, .barraJuego { border:2px solid #fff; }
+.prog .bar div, .progress .bar div, #progBar, #bar { background:linear-gradient(90deg,#ff8fa8,#e4002b) !important; }
+.chip.oro { color:var(--kt-rojo) !important; }
+.opt, .f.on { }
+.f.on { background:var(--kt-rojo) !important; box-shadow:0 5px 0 var(--kt-rojo-osc) !important; }
+.dado { background:linear-gradient(180deg,#ff4f6e,#e4002b) !important; border:3px solid #fff !important; box-shadow:0 7px 0 #b30022 !important; font-family:"Fredoka",sans-serif; }
+
+/* papelito, cupón y notas */
+.note { border:3px solid #fff; box-shadow:0 14px 30px #e4002b22 !important; }
+.note::before { background:#ff9db4cc !important; }
+.cupon { border-color:var(--kt-rojo) !important; background:linear-gradient(135deg,#fff,#ffeef2) !important; }
+.cupon .c { background:var(--kt-rojo) !important; }
+.pointer { border-top-color:var(--kt-rojo) !important; }
+.hub { color:var(--kt-rojo) !important; border:3px solid var(--kt-rosa) !important; }
+.plato, .idea, .elegir { border:3px solid #fff; box-shadow:0 12px 28px #e4002b1f !important; }
+.tag, .estado { }
+
+/* decoración que cae despacito */
+.kt-deco { position:fixed; inset:0; pointer-events:none; z-index:-1; overflow:hidden; }
+.kt-deco span { position:absolute; top:-40px; opacity:.45; animation:kt-cae linear infinite; will-change:transform; }
+@keyframes kt-cae { 0% { transform:translateY(0) rotate(-10deg); } 50% { transform:translateY(55vh) translateX(18px) rotate(12deg); } 100% { transform:translateY(112vh) translateX(-12px) rotate(-8deg); } }
+@media (prefers-reduced-motion: reduce) { .kt-deco { display:none; } }
+.spark { background:#ff9db4 !important; }

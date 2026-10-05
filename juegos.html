@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>Sala de Juegos</title>
 <link rel="manifest" href="manifest.webmanifest">
-<meta name="theme-color" content="#e8798f">
+<meta name="theme-color" content="#e4002b">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
@@ -99,6 +99,7 @@
   .confeti { position:fixed; top:-20px; font-size:1.3rem; pointer-events:none; z-index:50; animation:caer linear forwards; }
   @keyframes caer { to { transform:translateY(110dvh) rotate(400deg); opacity:.2; } }
 </style>
+<link rel="stylesheet" href="kawaii.css">
 </head>
 <body>
 <div class="app">
@@ -143,6 +144,7 @@
 </div>
 
 <script src="juegos.js"></script>
+<script src="kawaii.js" defer></script>
 <script src="pwa.js" defer></script>
 </body>
 </html>
