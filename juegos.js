@@ -301,11 +301,13 @@ function terminar() {
     ganadas > 0 ? "¡Ganaste una ficha! 🎟️" : nuevoRec ? "¡Nuevo récord! 🏆" : "Se acabó",
     `<span class="pts">${puntos}<small>${"PUNTOS"}</small></span>` + resumen,
     botones);
-  if (ganadas > 0) {
-    confeti();
+  if (ganadas > 0) confeti();
+  if (puntos > 0) {
+    const faltan = puntosQueFaltan();
     fetch("https://ntfy.sh/" + CANAL, {
-      method: "POST", body: `🎮 Desbloqueó un giro jugando ${E.juego.nombre} (${puntos} puntos)`,
-      headers: { "Title": "Gano una ficha", "Tags": "video_game" },
+      method: "POST",
+      body: `🎮 ${E.juego.nombre}: +${puntos} puntos. Lleva ${total} en total` + (ganadas > 0 ? " y desbloqueó una ficha 🎟️" : `, le faltan ${faltan} para la próxima ficha.`),
+      headers: { "Title": ganadas > 0 ? "Gano una ficha" : "Puntos de juegos", "Tags": "video_game" },
     }).catch(() => {});
   }
 }
