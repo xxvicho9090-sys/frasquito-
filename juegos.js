@@ -1660,9 +1660,9 @@ JUEGOS.push({
 
 /* 17 ── Topos ─────────────────────────────────────────────── */
 JUEGOS.push({
-  id: "topos", nombre: "Topos Traviesos", emoji: "🐹", tipo: "canvas", tiempo: 40, factor: 0.05,
+  id: "topos", nombre: "Topos Traviesos", emoji: "🐹", tipo: "canvas", tiempo: 40, factor: 0.04,
   color: "#e3f6d9", desc: "Dale a los que asoman", fondo: "linear-gradient(#f3fbe9,#dcf2cb)",
-  ayuda: "Toca a los animalitos cuando asomen 🐹 (+10)<br>El conejito 🐰 vale más y se esconde rápido. ¡Al erizo 🦔 no lo toques!",
+  ayuda: "Toca a los animalitos cuando asomen 🐹 (+10)<br>El conejito 🐰 vale más y se esconde rápido. La ardilla 🐿️ salta de hoyo en hoyo: ¡síguela! (+30)<br>¡Al erizo 🦔 no lo toques!",
   init() {
     const W = E.W, H = E.H;
     this.cel = Math.min(W / 3, (H - 14) / 4); this.ox = (W - this.cel * 3) / 2; this.oy = (H - this.cel * 4) / 2 + 8;
@@ -1674,16 +1674,21 @@ JUEGOS.push({
     for (let i = 0; i < 12; i++) {
       const a = this.h[i]; if (!a) continue; a.edad += dt;
       if (a.golpe) { if (a.edad - a.tg > .28) this.h[i] = null; }
+      else if (a.tipo === "m" && a.saltos < 2 && a.edad > a.dur - .12) {
+        const libres = this.h.map((q, j) => q ? -1 : j).filter(j => j >= 0);
+        if (libres.length) { const j = libres[Math.floor(Math.random() * libres.length)]; this.h[i] = null; this.h[j] = { tipo: "m", edad: -dt, dur: a.dur, golpe: false, saltos: a.saltos + 1 }; api.tono(900, .04, "triangle"); }
+        else if (a.edad > a.dur) { this.racha = 0; this.h[i] = null; }
+      }
       else if (a.edad > a.dur) { if (a.tipo !== "e") this.racha = 0; this.h[i] = null; }
     }
     if (this.spawn <= 0) {
       const libres = this.h.map((a, i) => a ? -1 : i).filter(i => i >= 0);
       if (libres.length) {
         const i = libres[Math.floor(Math.random() * libres.length)], r = Math.random(), dif = Math.min(1, this.t / 40);
-        const tipo = r < .15 ? "e" : r < .25 ? "c" : "t", base = 1.15 - .5 * dif;
-        this.h[i] = { tipo, edad: 0, dur: tipo === "c" ? base * .7 : base, golpe: false };
+        const tipo = r < .17 ? "e" : r < .27 ? "c" : r < .41 ? "m" : "t", base = 1.0 - .55 * dif;
+        this.h[i] = { tipo, edad: 0, dur: tipo === "c" ? base * .65 : tipo === "m" ? base * .8 : base, golpe: false, saltos: 0 };
       }
-      this.spawn = Math.max(.36, .85 - this.t * .012);
+      this.spawn = Math.max(.3, .75 - this.t * .014);
     }
   },
   tocar(x, y, tipo) {
@@ -1694,7 +1699,7 @@ JUEGOS.push({
       if (Math.hypot(x - p.x, y - p.y + this.cel * .1) > this.cel * .46) continue;
       a.golpe = true; a.tg = a.edad;
       if (a.tipo === "e") { api.sumar(-15, p.x, p.y - 30); api.sacudir(10); api.tono(130, .2, "sawtooth"); api.vibrar(50); this.racha = 0; }
-      else { this.racha++; api.sumar((a.tipo === "c" ? 25 : 10) + Math.min(10, this.racha), p.x, p.y - 30); api.chispas(p.x, p.y - 20, "#ffd54a", 10, "⭐"); api.tono(620 + this.racha * 20, .07); api.vibrar(10); }
+      else { this.racha++; api.sumar((a.tipo === "c" ? 25 : a.tipo === "m" ? 30 : 10) + Math.min(10, this.racha), p.x, p.y - 30); api.chispas(p.x, p.y - 20, "#ffd54a", 10, "⭐"); api.tono(620 + this.racha * 20, .07); api.vibrar(10); }
       return;
     }
   },
@@ -1707,7 +1712,7 @@ JUEGOS.push({
         const sube = a.golpe ? Math.max(0, 1 - (a.edad - a.tg) / .28) : Math.min(1, a.edad / .13) * (a.edad > a.dur - .12 ? Math.max(0, (a.dur - a.edad) / .12) : 1);
         c.save(); c.beginPath(); c.rect(p.x - L * .5, p.y - L * 1.2, L, L * 1.2); c.clip();
         c.font = (L * .6) + "px serif"; c.textAlign = "center"; c.textBaseline = "middle";
-        const emj = a.tipo === "e" ? "🦔" : a.tipo === "c" ? "🐰" : "🐹";
+        const emj = a.tipo === "e" ? "🦔" : a.tipo === "c" ? "🐰" : a.tipo === "m" ? "🐿️" : "🐹";
         c.translate(p.x, p.y + (1 - sube) * L * .55 - L * .12); if (a.golpe) c.scale(1.15, .8);
         c.fillText(emj, 0, 0); c.restore();
       }
