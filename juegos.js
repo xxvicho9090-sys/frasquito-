@@ -3,7 +3,7 @@
    ✏️ PERSONALIZA: META (puntos por ficha) y CANAL (ntfy)
    ============================================================ */
 const META = 1000;  // puntos para ganar una ficha (1 giro de ruleta)
-const TOPE = 60;    // máximo de puntos que puede dar UNA partida
+const TOPE = Infinity;  // sin límite de puntos por partida
 const DIAS_ENTRE_GIROS = 7;   // aunque tenga fichas guardadas, solo se gira una vez por semana
 // ✏️ Pausa de la ruleta: no se puede girar hasta esta fecha (a las 00:00). Debe ser la misma que en ruleta.html
 const BLOQUEO_HASTA = new Date("2026-10-11T00:00:00").getTime();
@@ -299,7 +299,7 @@ function terminar() {
   }
   ovMostrar(
     ganadas > 0 ? "¡Ganaste una ficha! 🎟️" : nuevoRec ? "¡Nuevo récord! 🏆" : "Se acabó",
-    `<span class="pts">${puntos}<small>${puntos >= TOPE ? "PUNTOS (TOPE)" : "PUNTOS"}</small></span>` + resumen,
+    `<span class="pts">${puntos}<small>${"PUNTOS"}</small></span>` + resumen,
     botones);
   if (ganadas > 0) {
     confeti();
