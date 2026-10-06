@@ -1,5 +1,5 @@
 /* ============================================================
-   SALA DE JUEGOS — motor común + 13 juegos
+   SALA DE JUEGOS — motor común + 17 juegos
    ✏️ PERSONALIZA: META (puntos por ficha) y CANAL (ntfy)
    ============================================================ */
 const META = 1000;  // puntos para ganar una ficha (1 giro de ruleta)
@@ -1367,6 +1367,354 @@ JUEGOS.push({
   },
 });
 
+
+/* 14 ── Zen de burbujas ───────────────────────────────────── */
+JUEGOS.push({
+  id: "zen", nombre: "Zen de Burbujas", emoji: "🔮", tipo: "canvas", tiempo: null, factor: 0.02,
+  color: "#e6e0ff", desc: "Une 3 del mismo color", fondo: "linear-gradient(#f6f2ff,#e4ecff)", medio: "🫧",
+  ayuda: "Apunta con el dedo y suéltalo para disparar 🫧<br>Junta 3 o más del mismo color. Baja una fila cada 8 tiros que no revienten nada",
+  COL: ["#ff6f91", "#ffb84d", "#5fd39a", "#5cb8ff", "#b48cff"],
+  init() {
+    const W = E.W, H = E.H;
+    this.C = 9; this.r = W / (2 * this.C + 1); this.dy = this.r * Math.sqrt(3);
+    this.sy = H - this.r * 2.3; this.linea = this.sy - this.r * 3.2;
+    this.maxF = Math.floor((this.linea - 2 * this.r) / this.dy);
+    this.par = 0; this.g = []; this.cae = []; this.b = null; this.fallos = 0;
+    this.ang = -Math.PI / 2; this.t = 0;
+    for (let f = 0; f < this.maxF + 3; f++) this.g.push(Array(this.C).fill(-1));
+    this.llenar(5);
+    this.sig = this.colorNuevo(); this.cur = this.colorNuevo();
+    this.hudf();
+  },
+  odd(f) { return (f + this.par) & 1; },
+  pos(f, c) { return { x: this.r + (this.odd(f) ? this.r : 0) + c * 2 * this.r, y: this.r + f * this.dy }; },
+  nb(f, c) {
+    const a = [[f, c - 1], [f, c + 1]], dc = this.odd(f) ? [0, 1] : [-1, 0];
+    for (const df of [-1, 1]) for (const d of dc) a.push([f + df, c + d]);
+    return a.filter(([ff, cc]) => ff >= 0 && ff < this.g.length && cc >= 0 && cc < this.C);
+  },
+  fila() { const a = []; for (let c = 0; c < this.C; c++) a.push(c && Math.random() < .5 ? a[c - 1] : Math.floor(Math.random() * 5)); return a; },
+  llenar(n) { for (let f = 0; f < n; f++) this.g[f] = this.fila(); },
+  colorNuevo() {
+    const h = new Set(); for (const fl of this.g) for (const v of fl) if (v >= 0) h.add(v);
+    const a = h.size ? [...h] : [0, 1, 2, 3, 4]; return a[Math.floor(Math.random() * a.length)];
+  },
+  hudf() { api.hud(undefined, "⬇️ " + (8 - this.fallos)); },
+  tocar(x, y, tipo) {
+    const dx = x - E.W / 2, dy = y - this.sy;
+    if (tipo !== "arriba" || Math.hypot(dx, dy) > 4) this.ang = Math.max(-Math.PI + .16, Math.min(-.16, Math.atan2(Math.min(dy, -10), dx)));
+    if (tipo === "arriba" && !this.b) this.disparar(this.ang);
+  },
+  disparar(a) {
+    this.b = { x: E.W / 2, y: this.sy, vx: Math.cos(a) * 980, vy: Math.sin(a) * 980, c: this.cur };
+    this.cur = this.sig; this.sig = this.colorNuevo(); api.tono(380, .06, "sine");
+  },
+  choca(x, y) {
+    if (y <= this.r) return true;
+    const lim = (1.85 * this.r) ** 2;
+    for (let f = 0; f < this.g.length; f++) {
+      if (Math.abs(this.pos(f, 0).y - y) > 2 * this.r) continue;
+      for (let c = 0; c < this.C; c++) if (this.g[f][c] >= 0) { const p = this.pos(f, c); if ((p.x - x) ** 2 + (p.y - y) ** 2 < lim) return true; }
+    }
+    return false;
+  },
+  update(dt) {
+    this.t += dt;
+    for (const q of this.cae) { q.vy += 1500 * dt; q.y += q.vy * dt; q.x += q.vx * dt; }
+    this.cae = this.cae.filter(q => q.y < E.H + 30);
+    const b = this.b; if (!b) return;
+    const pasos = Math.ceil(980 * dt / (this.r * .5));
+    for (let i = 0; i < pasos && this.b; i++) {
+      b.x += b.vx * dt / pasos; b.y += b.vy * dt / pasos;
+      if (b.x < this.r) { b.x = this.r; b.vx = -b.vx; } else if (b.x > E.W - this.r) { b.x = E.W - this.r; b.vx = -b.vx; }
+      if (this.choca(b.x, b.y)) this.fijar();
+    }
+  },
+  fijar() {
+    const b = this.b; this.b = null; let mejor = null, md = 1e9;
+    for (let f = 0; f < this.g.length; f++) for (let c = 0; c < this.C; c++) {
+      if (this.g[f][c] >= 0) continue;
+      if (f > 0 && !this.nb(f, c).some(([ff, cc]) => this.g[ff][cc] >= 0)) continue;
+      const p = this.pos(f, c), d = (p.x - b.x) ** 2 + (p.y - b.y) ** 2; if (d < md) { md = d; mejor = [f, c]; }
+    }
+    if (!mejor) { api.fin(); return; }
+    const [f, c] = mejor; this.g[f][c] = b.c;
+    const grupo = [[f, c]], vis = new Set([f * 100 + c]);
+    for (let i = 0; i < grupo.length; i++) for (const [ff, cc] of this.nb(...grupo[i]))
+      if (this.g[ff][cc] === b.c && !vis.has(ff * 100 + cc)) { vis.add(ff * 100 + cc); grupo.push([ff, cc]); }
+    if (grupo.length >= 3) {
+      for (const [ff, cc] of grupo) { const p = this.pos(ff, cc); this.g[ff][cc] = -1; api.chispas(p.x, p.y, this.COL[b.c], 7); }
+      api.sumar(10 * grupo.length + (grupo.length > 3 ? 5 * (grupo.length - 3) : 0), this.pos(f, c).x, this.pos(f, c).y);
+      api.tono(520 + grupo.length * 40, .1); api.vibrar(15);
+      this.huerfanas();
+      if (this.g.every(fl => fl.every(v => v < 0))) { api.sumar(100, E.W / 2, E.H / 2); this.llenar(4); this.fallos = 0; api.tono(880, .2); }
+    } else {
+      api.tono(240, .05, "triangle");
+      if (++this.fallos >= 8) { this.fallos = 0; this.subir(); }
+    }
+    this.hudf();
+    for (let ff = this.maxF + 1; ff < this.g.length; ff++) if (this.g[ff].some(v => v >= 0)) { api.sacudir(8); api.fin(); return; }
+  },
+  huerfanas() {
+    const vis = new Set(), pila = [];
+    for (let c = 0; c < this.C; c++) if (this.g[0][c] >= 0) { vis.add(c); pila.push([0, c]); }
+    while (pila.length) for (const [ff, cc] of this.nb(...pila.pop())) if (this.g[ff][cc] >= 0 && !vis.has(ff * 100 + cc)) { vis.add(ff * 100 + cc); pila.push([ff, cc]); }
+    let n = 0;
+    for (let f = 0; f < this.g.length; f++) for (let c = 0; c < this.C; c++) if (this.g[f][c] >= 0 && !vis.has(f * 100 + c)) {
+      const p = this.pos(f, c); this.cae.push({ x: p.x, y: p.y, vy: -120, vx: (Math.random() - .5) * 80, c: this.g[f][c] }); this.g[f][c] = -1; n++;
+    }
+    if (n) { api.sumar(15 * n, E.W / 2, E.H * .4); api.tono(700, .15); }
+  },
+  subir() {
+    this.par ^= 1; this.g.unshift(this.fila()); this.g.pop(); api.sacudir(4); api.tono(180, .12, "triangle");
+  },
+  bola(c, x, y, col, r = this.r) {
+    const g = c.createRadialGradient(x - r / 3, y - r / 3, 1, x, y, r);
+    g.addColorStop(0, "#ffffffee"); g.addColorStop(.35, col); g.addColorStop(1, col);
+    c.fillStyle = g; c.beginPath(); c.arc(x, y, r - 1, 0, 7); c.fill();
+    c.strokeStyle = "#ffffff88"; c.lineWidth = 1.5; c.stroke();
+  },
+  draw(c) {
+    for (let f = 0; f < this.g.length; f++) for (let k = 0; k < this.C; k++) if (this.g[f][k] >= 0) { const p = this.pos(f, k); this.bola(c, p.x, p.y, this.COL[this.g[f][k]]); }
+    for (const q of this.cae) this.bola(c, q.x, q.y, this.COL[q.c]);
+    c.strokeStyle = "#e8798f88"; c.setLineDash([8, 8]); c.lineWidth = 2; c.beginPath(); c.moveTo(0, this.linea); c.lineTo(E.W, this.linea); c.stroke(); c.setLineDash([]);
+    if (!this.b) {
+      let x = E.W / 2, y = this.sy, vx = Math.cos(this.ang), vy = Math.sin(this.ang), s = this.r * .6;
+      c.fillStyle = "#7a6b8acc";
+      for (let i = 0; i < 140; i++) {
+        x += vx * s; y += vy * s;
+        if (x < this.r) { x = this.r; vx = -vx; } else if (x > E.W - this.r) { x = E.W - this.r; vx = -vx; }
+        if (this.choca(x, y)) break;
+        if (i % 3 === 0) { c.globalAlpha = Math.max(.15, 1 - i / 120); c.beginPath(); c.arc(x, y, 2.4, 0, 7); c.fill(); }
+      }
+      c.globalAlpha = 1;
+      this.bola(c, E.W / 2, this.sy, this.COL[this.cur]);
+    } else this.bola(c, this.b.x, this.b.y, this.COL[this.b.c]);
+    this.bola(c, this.r * 1.6, this.sy + this.r * .6, this.COL[this.sig], this.r * .7);
+    c.fillStyle = "#7a6b8a"; c.font = "800 11px Nunito, sans-serif"; c.textAlign = "left"; c.fillText("sigue", this.r * .7, this.sy - this.r * .5);
+  },
+});
+
+/* 15 ── Conecta las flores ────────────────────────────────── */
+JUEGOS.push({
+  id: "flores", nombre: "Conecta las Flores", emoji: "🌸", tipo: "canvas", tiempo: 100, factor: 0.06,
+  color: "#ffe3f2", desc: "Une cada par con un camino", fondo: "linear-gradient(#fff7fb,#ffe8f4)",
+  ayuda: "Desliza el dedo de una flor a otra del mismo color 🌸<br>Los caminos no pueden cruzarse. Cada tablero resuelto te regala tiempo",
+  COL: ["#ff6f91", "#ffb84d", "#5fd39a", "#5cb8ff", "#b48cff", "#ff8fd8", "#4fd1c5"],
+  init() { this.nivel = 0; this.espera = 0; this.nuevo(); },
+  nuevo() {
+    const n = Math.min(7, 4 + Math.floor(this.nivel / 2)); this.n = n;
+    const k = n - 1, tot = n * n, len = Array(k).fill(3);
+    for (let i = 0; i < tot - 3 * k; i++) len[Math.floor(Math.random() * k)]++;
+    const cam = this.hamilton(n); this.ends = {}; this.paths = [];
+    let i = 0;
+    len.forEach((L, c) => { const seg = cam.slice(i, i + L); i += L; this.ends[seg[0]] = c; this.ends[seg[L - 1]] = c; this.paths.push([seg[0]]); });
+    this.dibu = -1; this.ult = null; this.recalc();
+    const W = E.W, H = E.H, S = Math.min(W - 24, H - 90); this.cel = S / n; this.ox = (W - S) / 2; this.oy = Math.max(10, (H - 60 - S) / 2);
+    this.hudn();
+  },
+  hudn() { api.hud(undefined, "🌷 Nivel " + (this.nivel + 1)); },
+  hamilton(n) {
+    const tot = n * n;
+    const vec = i => { const r = Math.floor(i / n), c = i % n, a = []; if (r > 0) a.push(i - n); if (r < n - 1) a.push(i + n); if (c > 0) a.push(i - 1); if (c < n - 1) a.push(i + 1); return a; };
+    for (let intento = 0; intento < 400; intento++) {
+      const vis = Array(tot).fill(false), path = []; let pasos = 0;
+      const dfs = i => {
+        if (++pasos > 4000) return false;
+        vis[i] = true; path.push(i); if (path.length === tot) return true;
+        const op = vec(i).filter(j => !vis[j]).map(j => [vec(j).filter(q => !vis[q]).length + Math.random() * 1.5, j]).sort((a, b) => a[0] - b[0]);
+        for (const [, j] of op) if (dfs(j)) return true;
+        vis[i] = false; path.pop(); return false;
+      };
+      if (dfs(Math.floor(Math.random() * tot))) return path;
+    }
+    const a = []; for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) a.push(r * n + (r % 2 ? n - 1 - c : c)); return a;
+  },
+  recalc() { this.dueno = Array(this.n * this.n).fill(-1); this.paths.forEach((p, c) => p.forEach(i => this.dueno[i] = c)); },
+  completo(c) { const p = this.paths[c]; return p.length > 1 && this.ends[p[p.length - 1]] === c; },
+  celda(x, y) { const c = Math.floor((x - this.ox) / this.cel), r = Math.floor((y - this.oy) / this.cel); return c < 0 || r < 0 || c >= this.n || r >= this.n ? -1 : r * this.n + c; },
+  tocar(x, y, tipo) {
+    if (this.espera > 0) return;
+    if (tipo === "arriba") { this.dibu = -1; this.ult = null; return; }
+    if (tipo === "abajo") {
+      if (y > E.H - 52 && Math.abs(x - E.W / 2) < 90) { E.tiempo = Math.max(1, E.tiempo - 6); api.flota(E.W / 2, E.H - 70, "-6 s", "#d9534f"); this.nivel++; this.nuevo(); return; }
+      const i = this.celda(x, y); if (i < 0) return;
+      this.ult = { x, y };
+      if (this.ends[i] !== undefined) { this.dibu = this.ends[i]; this.paths[this.dibu] = [i]; }
+      else if (this.dueno[i] >= 0) { const p = this.paths[this.dueno[i]]; this.dibu = this.dueno[i]; this.paths[this.dibu] = p.slice(0, p.indexOf(i) + 1); }
+      else return;
+      this.recalc(); api.tono(500, .04); return;
+    }
+    if (this.dibu < 0 || !this.ult) return;
+    const d = Math.hypot(x - this.ult.x, y - this.ult.y), pasos = Math.max(1, Math.ceil(d / (this.cel * .25)));
+    for (let s = 1; s <= pasos; s++) { const i = this.celda(this.ult.x + (x - this.ult.x) * s / pasos, this.ult.y + (y - this.ult.y) * s / pasos); if (this.dibu < 0) break; if (i >= 0) this.entra(i); }
+    this.ult = { x, y };
+  },
+  entra(i) {
+    if (this.dibu < 0) return;
+    const p = this.paths[this.dibu], u = p[p.length - 1]; if (i === u) return;
+    const n = this.n, ru = Math.floor(u / n), cu = u % n, ri = Math.floor(i / n), ci = i % n;
+    if (Math.abs(ru - ri) + Math.abs(cu - ci) !== 1) {
+      if (Math.abs(ru - ri) === 1 && Math.abs(cu - ci) === 1) {
+        const a = ru * n + ci, b = ri * n + cu, antes = p.length;
+        this.entra(a); if (this.dibu >= 0 && this.paths[this.dibu].length === antes) this.entra(b);
+        if (this.dibu >= 0 && this.paths[this.dibu].length > antes) this.entra(i);
+      }
+      return;
+    }
+    if (p.length >= 2 && i === p[p.length - 2]) { p.pop(); this.recalc(); return; }
+    if (this.completo(this.dibu)) return;
+    const k = p.indexOf(i); if (k >= 0) { p.length = k + 1; this.recalc(); return; }
+    const e = this.ends[i]; if (e !== undefined && e !== this.dibu) return;
+    const o = this.dueno[i]; if (o >= 0 && o !== this.dibu) this.paths[o] = this.paths[o].slice(0, this.paths[o].indexOf(i));
+    p.push(i); this.recalc(); api.tono(560 + p.length * 18, .03);
+    if (this.completo(this.dibu)) { api.tono(780, .1); api.vibrar(12); if (this.paths.every((_, c) => this.completo(c))) this.ganar(); }
+  },
+  ganar() {
+    const g = 20 + this.n * 6 + this.nivel * 3; api.sumar(g, E.W / 2, E.H * .45); api.chispas(E.W / 2, E.H * .45, "#ff8fd8", 28, "🌸");
+    E.tiempo = Math.min(120, E.tiempo + 10); api.tono(660, .12); this.espera = .9; this.dibu = -1;
+  },
+  update(dt) { if (this.espera > 0) { this.espera -= dt; if (this.espera <= 0) { this.nivel++; this.nuevo(); } } },
+  draw(c) {
+    const n = this.n, L = this.cel, cx = i => this.ox + (i % n + .5) * L, cy = i => this.oy + (Math.floor(i / n) + .5) * L;
+    c.fillStyle = "#ffffffcc"; c.beginPath(); c.roundRect(this.ox - 6, this.oy - 6, n * L + 12, n * L + 12, 16); c.fill();
+    for (let i = 0; i < n * n; i++) { c.fillStyle = (Math.floor(i / n) + i % n) % 2 ? "#fff0f7" : "#ffe6f1"; c.fillRect(this.ox + (i % n) * L + 1, this.oy + Math.floor(i / n) * L + 1, L - 2, L - 2); }
+    c.lineCap = "round"; c.lineJoin = "round";
+    this.paths.forEach((p, k) => {
+      if (p.length < 2) return; c.strokeStyle = this.COL[k]; c.globalAlpha = this.completo(k) ? 1 : .8; c.lineWidth = L * .38;
+      c.beginPath(); p.forEach((i, j) => j ? c.lineTo(cx(i), cy(i)) : c.moveTo(cx(i), cy(i))); c.stroke();
+    });
+    c.globalAlpha = 1;
+    for (const key in this.ends) {
+      const i = +key, col = this.COL[this.ends[i]], x = cx(i), y = cy(i), R = L * .2;
+      c.fillStyle = col; for (let a = 0; a < 6; a++) { c.beginPath(); c.arc(x + Math.cos(a * 1.047) * R * .85, y + Math.sin(a * 1.047) * R * .85, R * .72, 0, 7); c.fill(); }
+      c.fillStyle = "#fff"; c.beginPath(); c.arc(x, y, R * .55, 0, 7); c.fill();
+      c.fillStyle = "#ffd54a"; c.beginPath(); c.arc(x, y, R * .3, 0, 7); c.fill();
+    }
+    c.fillStyle = "#7a6b8a"; c.font = "800 13px Nunito, sans-serif"; c.textAlign = "center";
+    c.fillText("⏭️ Saltar este (−6 s)", E.W / 2, E.H - 24);
+  },
+});
+
+/* 16 ── Corta Frutas ──────────────────────────────────────── */
+JUEGOS.push({
+  id: "frutas", nombre: "Corta Frutas", emoji: "🍉", tipo: "canvas", tiempo: null, factor: 0.035,
+  color: "#ffe1d6", desc: "Desliza para cortar", fondo: "linear-gradient(#fff8ef,#ffe6dc)", medio: "❤️❤️❤️",
+  ayuda: "Desliza el dedo para cortar las frutas 🍉<br>Si se te caen pierdes un ❤️. Las bombas 💣 también. El 💖 te devuelve uno",
+  FR: [["🍓", "#ff5470"], ["🍊", "#ffa032"], ["🍉", "#ff6b6b"], ["🍎", "#ff4d4d"], ["🍑", "#ffb09c"], ["🍇", "#9b6bd6"], ["🍋", "#ffe14d"], ["🥝", "#8bd45a"]],
+  init() { this.f = []; this.m = []; this.vidas = 3; this.t = 0; this.spawn = .8; this.rastro = []; this.last = null; this.n = 0; this.flash = 0; this.hudv(); },
+  hudv() { api.hud(undefined, "❤️".repeat(this.vidas) + "🤍".repeat(3 - this.vidas)); },
+  lanzar() {
+    const W = E.W, H = E.H, g = H * 1.35, h = H * (.55 + Math.random() * .3), x = W * (.15 + Math.random() * .7);
+    const bomba = Math.random() < Math.min(.2, .07 + this.t * .0018), cor = !bomba && this.vidas < 3 && Math.random() < .05;
+    const fr = this.FR[Math.floor(Math.random() * this.FR.length)];
+    this.f.push({ x, y: H + 30, vx: (W / 2 - x) * (.25 + Math.random() * .35), vy: -Math.sqrt(2 * g * h), g, r: 27, em: bomba ? "💣" : cor ? "💖" : fr[0], col: bomba ? "#555" : cor ? "#ff8fd8" : fr[1], tipo: bomba ? "b" : cor ? "c" : "f", rot: 0, vr: (Math.random() - .5) * 6, sub: false });
+  },
+  tocar(x, y, tipo) {
+    if (tipo === "arriba") { this.last = null; this.rastro = []; return; }
+    if (tipo === "abajo") { this.last = { x, y }; this.n = 0; }
+    if (!this.last) return;
+    this.cortar(this.last.x, this.last.y, x, y); this.last = { x, y };
+    this.rastro.push({ x, y, t: this.t });
+  },
+  cortar(x1, y1, x2, y2) {
+    const dx = x2 - x1, dy = y2 - y1, L2 = dx * dx + dy * dy;
+    for (const o of this.f) {
+      if (o.cortada) continue;
+      const u = L2 ? Math.max(0, Math.min(1, ((o.x - x1) * dx + (o.y - y1) * dy) / L2)) : 0;
+      if (Math.hypot(o.x - (x1 + u * dx), o.y - (y1 + u * dy)) > o.r + 6) continue;
+      o.cortada = true;
+      if (o.tipo === "b") { this.vidas--; this.flash = .35; api.sumar(-10, o.x, o.y); api.sacudir(14); api.tono(120, .25, "sawtooth"); api.vibrar(60); api.chispas(o.x, o.y, "#ff9f43", 20); this.hudv(); if (this.vidas <= 0) api.fin(); continue; }
+      if (o.tipo === "c") { this.vidas = Math.min(3, this.vidas + 1); api.flota(o.x, o.y, "+❤️", "#ff4d8d"); api.tono(900, .15); this.hudv(); continue; }
+      this.n++; api.sumar(10 + (this.n >= 3 ? 10 * (this.n - 2) : 0), o.x, o.y);
+      api.chispas(o.x, o.y, o.col, 14); api.tono(500 + Math.random() * 300, .06, "triangle"); api.vibrar(10);
+      for (const lado of [-1, 1]) this.m.push({ em: o.em, x: o.x, y: o.y, vx: o.vx * .5 + lado * 90, vy: o.vy * .3 - 60, g: o.g, rot: o.rot, vr: lado * 3.5, lado, r: o.r });
+    }
+  },
+  update(dt) {
+    this.t += dt; this.flash = Math.max(0, this.flash - dt);
+    this.spawn -= dt;
+    if (this.spawn <= 0) {
+      const k = 1 + (Math.random() < Math.min(.7, .2 + this.t * .008) ? 1 : 0) + (this.t > 30 && Math.random() < .35 ? 1 : 0);
+      for (let i = 0; i < k; i++) this.lanzar();
+      this.spawn = Math.max(.55, 1.5 - this.t * .012);
+    }
+    for (const o of this.f) { o.vy += o.g * dt; o.x += o.vx * dt; o.y += o.vy * dt; o.rot += o.vr * dt; if (o.vy > 0) o.sub = true; }
+    for (const o of this.m) { o.vy += o.g * dt; o.x += o.vx * dt; o.y += o.vy * dt; o.rot += o.vr * dt; }
+    for (const o of this.f) if (!o.cortada && o.y > E.H + 40 && o.sub && o.tipo === "f") { o.cortada = true; this.vidas--; api.tono(200, .15, "triangle"); api.flota(o.x, E.H - 30, "💔", "#d9534f"); this.hudv(); if (this.vidas <= 0) { api.fin(); return; } }
+    this.f = this.f.filter(o => !o.cortada && o.y < E.H + 60); this.m = this.m.filter(o => o.y < E.H + 60);
+    this.rastro = this.rastro.filter(p => this.t - p.t < .16);
+  },
+  draw(c) {
+    c.textAlign = "center"; c.textBaseline = "middle"; c.font = "48px serif";
+    for (const o of this.f) { c.save(); c.translate(o.x, o.y); c.rotate(o.rot); c.fillText(o.em, 0, 2); c.restore(); }
+    for (const o of this.m) { c.save(); c.translate(o.x, o.y); c.rotate(o.rot); c.beginPath(); c.rect(o.lado < 0 ? -40 : 0, -40, 40, 80); c.clip(); c.fillText(o.em, 0, 2); c.restore(); }
+    if (this.rastro.length > 1) {
+      c.lineCap = "round"; c.lineJoin = "round";
+      for (let i = 1; i < this.rastro.length; i++) { const a = 1 - (this.t - this.rastro[i].t) / .16; c.globalAlpha = Math.max(0, a); c.strokeStyle = "#ffffff"; c.lineWidth = 3 + 7 * a; c.shadowColor = "#ff8fd8"; c.shadowBlur = 12; c.beginPath(); c.moveTo(this.rastro[i - 1].x, this.rastro[i - 1].y); c.lineTo(this.rastro[i].x, this.rastro[i].y); c.stroke(); }
+      c.globalAlpha = 1; c.shadowBlur = 0;
+    }
+    if (this.flash > 0) { c.fillStyle = `rgba(255,80,60,${this.flash})`; c.fillRect(0, 0, E.W, E.H); }
+  },
+});
+
+/* 17 ── Topos ─────────────────────────────────────────────── */
+JUEGOS.push({
+  id: "topos", nombre: "Topos Traviesos", emoji: "🐹", tipo: "canvas", tiempo: 40, factor: 0.05,
+  color: "#e3f6d9", desc: "Dale a los que asoman", fondo: "linear-gradient(#f3fbe9,#dcf2cb)",
+  ayuda: "Toca a los animalitos cuando asomen 🐹 (+10)<br>El conejito 🐰 vale más y se esconde rápido. ¡Al erizo 🦔 no lo toques!",
+  init() {
+    const W = E.W, H = E.H;
+    this.cel = Math.min(W / 3, (H - 14) / 4); this.ox = (W - this.cel * 3) / 2; this.oy = (H - this.cel * 4) / 2 + 8;
+    this.h = Array.from({ length: 12 }, () => null); this.spawn = .5; this.t = 0; this.racha = 0;
+  },
+  centro(i) { return { x: this.ox + (i % 3 + .5) * this.cel, y: this.oy + (Math.floor(i / 3) + .62) * this.cel }; },
+  update(dt) {
+    this.t += dt; this.spawn -= dt;
+    for (let i = 0; i < 12; i++) {
+      const a = this.h[i]; if (!a) continue; a.edad += dt;
+      if (a.golpe) { if (a.edad - a.tg > .28) this.h[i] = null; }
+      else if (a.edad > a.dur) { if (a.tipo !== "e") this.racha = 0; this.h[i] = null; }
+    }
+    if (this.spawn <= 0) {
+      const libres = this.h.map((a, i) => a ? -1 : i).filter(i => i >= 0);
+      if (libres.length) {
+        const i = libres[Math.floor(Math.random() * libres.length)], r = Math.random(), dif = Math.min(1, this.t / 40);
+        const tipo = r < .15 ? "e" : r < .25 ? "c" : "t", base = 1.15 - .5 * dif;
+        this.h[i] = { tipo, edad: 0, dur: tipo === "c" ? base * .7 : base, golpe: false };
+      }
+      this.spawn = Math.max(.36, .85 - this.t * .012);
+    }
+  },
+  tocar(x, y, tipo) {
+    if (tipo !== "abajo") return;
+    for (let i = 0; i < 12; i++) {
+      const a = this.h[i]; if (!a || a.golpe) continue;
+      const p = this.centro(i); if (Math.min(1, a.edad / .13) < .4) continue;
+      if (Math.hypot(x - p.x, y - p.y + this.cel * .1) > this.cel * .46) continue;
+      a.golpe = true; a.tg = a.edad;
+      if (a.tipo === "e") { api.sumar(-15, p.x, p.y - 30); api.sacudir(10); api.tono(130, .2, "sawtooth"); api.vibrar(50); this.racha = 0; }
+      else { this.racha++; api.sumar((a.tipo === "c" ? 25 : 10) + Math.min(10, this.racha), p.x, p.y - 30); api.chispas(p.x, p.y - 20, "#ffd54a", 10, "⭐"); api.tono(620 + this.racha * 20, .07); api.vibrar(10); }
+      return;
+    }
+  },
+  draw(c) {
+    const L = this.cel;
+    for (let i = 0; i < 12; i++) {
+      const p = this.centro(i), a = this.h[i];
+      c.fillStyle = "#6b4a3a"; c.beginPath(); c.ellipse(p.x, p.y + L * .02, L * .36, L * .13, 0, 0, 7); c.fill();
+      if (a) {
+        const sube = a.golpe ? Math.max(0, 1 - (a.edad - a.tg) / .28) : Math.min(1, a.edad / .13) * (a.edad > a.dur - .12 ? Math.max(0, (a.dur - a.edad) / .12) : 1);
+        c.save(); c.beginPath(); c.rect(p.x - L * .5, p.y - L * 1.2, L, L * 1.2); c.clip();
+        c.font = (L * .6) + "px serif"; c.textAlign = "center"; c.textBaseline = "middle";
+        const emj = a.tipo === "e" ? "🦔" : a.tipo === "c" ? "🐰" : "🐹";
+        c.translate(p.x, p.y + (1 - sube) * L * .55 - L * .12); if (a.golpe) c.scale(1.15, .8);
+        c.fillText(emj, 0, 0); c.restore();
+      }
+      c.fillStyle = "#8a5a44"; c.beginPath(); c.ellipse(p.x, p.y + L * .05, L * .36, L * .12, 0, 0, Math.PI); c.fill();
+    }
+  },
+});
 
 /* ============================================================
    HUB
