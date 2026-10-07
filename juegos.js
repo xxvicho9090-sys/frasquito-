@@ -228,7 +228,7 @@ function loop(t) {
 /* --- pausa automática si sale de la app --- */
 document.addEventListener("visibilitychange", () => {
   if (!E.corriendo) return;
-  if (document.hidden) { E.pausa = true; ovMostrar("Pausa ⏸️", "Volviste a otra app, así que te guardé el juego.", [{ txt: "Seguir jugando", cls: "btn", fn: reanudar }]); }
+  if (document.hidden) { guardarParcial(false); E.pausa = true; ovMostrar("Pausa ⏸️", "Volviste a otra app, así que te guardé el juego.", [{ txt: "Seguir jugando", cls: "btn", fn: reanudar }]); }
 });
 function reanudar() { ovOcultar(); E.pausa = false; E.ultimo = performance.now(); }
 
@@ -253,7 +253,7 @@ function arrancar() {
   limpiarTimers();
   ovOcultar();
   E.corriendo = false; E.pausa = false;
-  E.score = 0; E.tiempo = E.juego.tiempo || 0; E.parts = []; E.shake = 0;
+  E.score = 0; E.pagado = 0; E.tiempo = E.juego.tiempo || 0; E.parts = []; E.shake = 0;
   E.dom.innerHTML = "";
   medir();
   E.puntero = { x: E.W / 2, y: E.H / 2, abajo: false, movido: false };
@@ -276,7 +276,7 @@ function terminar() {
   if (nuevoRec) S.escribir("rec-" + E.juego.id, E.score);
   document.getElementById("hudDer").textContent = "🏆 " + S.leer("rec-" + E.juego.id, 0);
   const antes = fichasDisponibles();
-  const total = S.leer("juego-puntos", 0) + puntos;
+  const total = S.leer("juego-puntos", 0) + puntos - (E.pagado || 0);
   S.escribir("juego-puntos", total);
   const ahora = fichasDisponibles();
   const ganadas = ahora - antes;
@@ -311,7 +311,26 @@ function terminar() {
     }).catch(() => {});
   }
 }
+/* si sale a mitad de partida, igual se le cuentan los puntos que llevaba */
+function guardarParcial(cerrar = true) {
+  if (!E.corriendo || !E.juego) return;
+  if (cerrar) E.corriendo = false;
+  const puntos = Math.round(E.score * (E.juego.factor || 1)), delta = puntos - (E.pagado || 0);
+  if (E.score > S.leer("rec-" + E.juego.id, 0)) S.escribir("rec-" + E.juego.id, E.score);
+  if (delta <= 0) return;
+  E.pagado = puntos;
+  const total = S.leer("juego-puntos", 0) + delta;
+  S.escribir("juego-puntos", total);
+  pintarFichas();
+  fetch("https://ntfy.sh/" + CANAL, {
+    method: "POST", keepalive: true,
+    body: `🎮 ${E.juego.nombre} (salió antes de terminar): +${delta} puntos. Lleva ${total} en total, le faltan ${puntosQueFaltan()} para la próxima ficha.`,
+    headers: { "Title": "Puntos de juegos", "Tags": "video_game" },
+  }).catch(() => {});
+}
+addEventListener("pagehide", () => guardarParcial(true));
 function volverHub() {
+  guardarParcial();
   E.corriendo = false; E.pausa = false; E.token++;
   limpiarTimers();
   E.juego && E.juego.destroy && E.juego.destroy();
