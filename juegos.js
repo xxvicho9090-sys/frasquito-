@@ -1,5 +1,5 @@
 /* ============================================================
-   SALA DE JUEGOS — motor común + 17 juegos
+   SALA DE JUEGOS — motor común + 18 juegos
    ✏️ PERSONALIZA: META (puntos por ficha) y CANAL (ntfy)
    ============================================================ */
 const META = 1000;  // puntos para ganar una ficha (1 giro de ruleta)
@@ -1737,6 +1737,124 @@ JUEGOS.push({
       }
       c.fillStyle = "#8a5a44"; c.beginPath(); c.ellipse(p.x, p.y + L * .05, L * .36, L * .12, 0, 0, Math.PI); c.fill();
     }
+  },
+});
+
+/* 18 ── Ranita Cruza (estilo Frogger) ─────────────────────── */
+JUEGOS.push({
+  id: "rana", nombre: "Ranita Cruza", emoji: "🐸", tipo: "canvas", tiempo: null, factor: 0.05,
+  color: "#d9f5e0", desc: "Cruza la calle y el río", fondo: "#cfeedd", medio: "❤️❤️❤️",
+  ayuda: "Desliza (o toca arriba, abajo o a los lados) para saltar 🐸<br>Esquiva los autos y cruza el río sobre troncos y tortugas. ¡Llena las 5 hojitas!",
+  init() {
+    this.FIL = 13; this.COL = 9; this.nivel = 0; this.vidas = 3; this.metas = [false, false, false, false, false];
+    this.medir(); this.armar(); this.nacer(); this.hudv();
+  },
+  medir() { this.ch = E.H / this.FIL; this.cw = E.W / this.COL; },
+  hudv() { api.hud(undefined, "❤️".repeat(this.vidas) + "🤍".repeat(Math.max(0, 3 - this.vidas))); },
+  armar() {
+    const v = 1 + this.nivel * .18, cw = this.cw;
+    const AUTOS = ["🚗", "🚕", "🚙", "🏎️"], GRANDES = ["🚌", "🚚"];
+    // [fila, dirección, velocidad (celdas/s), largo, separación, tipo]
+    const conf = [
+      [1, 1, 1.1, 3, 6, "tronco"], [2, -1, 1.4, 2, 4, "tortuga"], [3, 1, 1.8, 4, 7, "tronco"], [4, -1, 1.2, 3, 5, "tortuga"], [5, 1, 1.5, 2, 5, "tronco"],
+      [7, -1, 1.3, 2, 6, "grande"], [8, 1, 2.2, 1, 4.5, "auto"], [9, -1, 1.6, 1, 3.5, "auto"], [10, 1, 1.1, 1, 4, "auto"], [11, -1, 1.9, 1, 5, "auto"],
+    ];
+    this.carriles = {};
+    for (const [f, d, vel, L, sep, tipo] of conf) {
+      const objs = [], paso = (L + sep) * cw, n = Math.ceil((E.W + paso * 2) / paso) + 1, off = Math.random() * paso;
+      for (let i = 0; i < n; i++) objs.push({ x: off + i * paso - paso, w: L * cw, em: tipo === "auto" ? AUTOS[(i + f) % AUTOS.length] : tipo === "grande" ? GRANDES[i % 2] : null, buceo: tipo === "tortuga" && i % 3 === 1 });
+      this.carriles[f] = { d, v: vel * v * cw, tipo, objs, largo: n * paso, t: Math.random() * 5 };
+    }
+  },
+  nacer() { this.x = Math.floor(this.COL / 2) * this.cw + this.cw / 2; this.f = this.FIL - 1; this.mejor = this.f; this.reloj = 30; this.muerta = 0; this.salto = 0; },
+  mover(dc, df) {
+    if (this.muerta > 0 || !E.corriendo) return;
+    const nf = Math.max(0, Math.min(this.FIL - 1, this.f + df)), nx = this.x + dc * this.cw;
+    if (nx < this.cw * .3 || nx > E.W - this.cw * .3) return;
+    this.f = nf; this.x = nx; this.salto = .12; api.tono(520 + (this.FIL - nf) * 25, .04, "square", .03);
+    if (nf < this.mejor) { this.mejor = nf; api.sumar(10); }
+    if (nf === 0) this.llegar();
+  },
+  llegar() {
+    const slot = Math.round((this.x / this.cw - .5) / 2);
+    const cx = (slot * 2 + .5) * this.cw;
+    if (slot < 0 || slot > 4 || Math.abs(this.x - cx) > this.cw * .55 || this.metas[slot]) return this.morir("🌿");
+    this.metas[slot] = true;
+    api.sumar(50 + Math.ceil(this.reloj) * 2, cx, this.ch * .5); api.chispas(cx, this.ch * .5, "#7bd88f", 16, "💚"); api.tono(880, .15); api.vibrar(20);
+    if (this.metas.every(Boolean)) {
+      api.sumar(200, E.W / 2, E.H / 2); api.flota(E.W / 2, E.H / 2 - 30, "¡Nivel " + (this.nivel + 2) + "!", "#e4002b");
+      this.metas = [false, false, false, false, false]; this.nivel++; this.armar();
+    }
+    this.nacer();
+  },
+  morir(em) {
+    if (this.muerta > 0) return;
+    this.muerta = .9; this.em = em || "💥"; this.vidas--; this.hudv();
+    api.sacudir(9); api.tono(150, .3, "sawtooth"); api.vibrar(70);
+  },
+  deslizar(d) { ({ arriba: () => this.mover(0, -1), abajo: () => this.mover(0, 1), izq: () => this.mover(-1, 0), der: () => this.mover(1, 0) })[d](); },
+  tocar(x, y, tipo) {
+    if (tipo === "abajo") { this.ini = { x, y }; return; }
+    if (tipo !== "arriba" || !this.ini) return;
+    const m = Math.hypot(x - this.ini.x, y - this.ini.y); this.ini = null;
+    if (m > 12) return;                                   // fue deslizar
+    const fy = (this.f + .5) * this.ch, dx = x - this.x, dy = y - fy;
+    if (Math.abs(dy) > Math.abs(dx) * .7) this.mover(0, dy < 0 ? -1 : 1); else this.mover(dx < 0 ? -1 : 1, 0);
+  },
+  update(dt) {
+    for (const k in this.carriles) {
+      const c = this.carriles[k]; c.t += dt;
+      for (const o of c.objs) {
+        o.x += c.d * c.v * dt;
+        if (c.d > 0 && o.x > E.W + o.w) o.x -= c.largo; else if (c.d < 0 && o.x + o.w < -o.w) o.x += c.largo;
+        if (o.buceo) o.abajo = Math.sin(c.t * 1.3) > .55;
+      }
+    }
+    if (this.salto > 0) this.salto -= dt;
+    if (this.muerta > 0) {
+      this.muerta -= dt;
+      if (this.muerta <= 0) { if (this.vidas <= 0) return api.fin(); this.nacer(); }
+      return;
+    }
+    this.reloj -= dt; if (this.reloj <= 0) return this.morir("⏰");
+    const c = this.carriles[this.f]; if (!c) return;
+    const ancho = this.cw * .32;
+    if (c.tipo === "tronco" || c.tipo === "tortuga") {
+      const sobre = c.objs.find(o => !o.abajo && this.x > o.x + ancho * .3 && this.x < o.x + o.w - ancho * .3);
+      if (!sobre) return this.morir("💦");
+      this.x += c.d * c.v * dt;
+      if (this.x < 2 || this.x > E.W - 2) this.morir("💦");
+    } else if (c.objs.some(o => this.x + ancho > o.x + 3 && this.x - ancho < o.x + o.w - 3)) this.morir("💥");
+  },
+  draw(c) {
+    const ch = this.ch, cw = this.cw, W = E.W;
+    for (let f = 0; f < this.FIL; f++) {
+      c.fillStyle = f === 0 ? "#7cc98a" : f <= 5 ? (f % 2 ? "#7cc6f2" : "#88cff5") : f === 6 || f === 12 ? "#ffd6e2" : (f % 2 ? "#8e8a96" : "#9a96a2");
+      c.fillRect(0, f * ch, W, ch + 1);
+      if (f >= 7 && f <= 10) { c.strokeStyle = "#ffffffaa"; c.setLineDash([12, 12]); c.lineWidth = 2; c.beginPath(); c.moveTo(0, (f + 1) * ch); c.lineTo(W, (f + 1) * ch); c.stroke(); c.setLineDash([]); }
+    }
+    c.textAlign = "center"; c.textBaseline = "middle";
+    for (let s = 0; s < 5; s++) {
+      const x = (s * 2 + .5) * cw;
+      c.fillStyle = "#4f9c5d"; c.beginPath(); c.ellipse(x, ch * .5, cw * .42, ch * .38, 0, 0, 7); c.fill();
+      c.font = (ch * .7) + "px serif"; c.fillText(this.metas[s] ? "🐸" : "🪷", x, ch * .55);
+    }
+    c.font = (ch * .38) + "px serif"; for (let i = 0; i < this.COL; i++) c.fillText(i % 2 ? "🌷" : "🌸", (i + .5) * cw, 6.5 * ch);
+    for (const k in this.carriles) {
+      const cr = this.carriles[k], y = k * ch;
+      for (const o of cr.objs) {
+        if (o.x > W || o.x + o.w < 0) continue;
+        if (cr.tipo === "tronco") { c.fillStyle = "#a8714d"; c.beginPath(); c.roundRect(o.x + 2, y + ch * .16, o.w - 4, ch * .68, ch * .3); c.fill(); c.fillStyle = "#c48a62"; c.fillRect(o.x + 8, y + ch * .42, o.w - 16, 3); }
+        else if (cr.tipo === "tortuga") { c.globalAlpha = o.abajo ? .25 : 1; c.font = (ch * .72) + "px serif"; for (let i = 0; i < Math.round(o.w / cw); i++) c.fillText("🐢", o.x + (i + .5) * cw, y + ch * .55); c.globalAlpha = 1; }
+        else { c.save(); c.font = (ch * (cr.tipo === "grande" ? .9 : .78)) + "px serif"; c.translate(o.x + o.w / 2, y + ch * .55); if (cr.d > 0) c.scale(-1, 1); c.fillText(o.em, 0, 0); c.restore(); }
+      }
+    }
+    const fy = (this.f + .5) * ch, esc = 1 + Math.max(0, this.salto) * 2.5;
+    c.font = (ch * .78 * esc) + "px serif";
+    c.fillText(this.muerta > 0 ? this.em : "🐸", this.x, fy);
+    const fr = Math.max(0, this.reloj / 30);
+    c.fillStyle = "#ffffffaa"; c.fillRect(6, E.H - 7, W - 12, 4);
+    c.fillStyle = fr > .3 ? "#3cb66a" : "#e4002b"; c.fillRect(6, E.H - 7, (W - 12) * fr, 4);
   },
 });
 
