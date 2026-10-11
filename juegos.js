@@ -245,6 +245,7 @@ function jugar(id) {
   E.dom.innerHTML = ""; E.parts = []; E.shake = 0;
   E.zona.style.background = def.fondo || "var(--card)";
   medir();
+  if (def.menu) return E.juego.menu();
   ovMostrar(def.emoji + " " + def.nombre, def.ayuda, [
     { txt: "Jugar", cls: "btn", fn: arrancar },
   ]);
@@ -285,6 +286,7 @@ function terminar() {
   const falta = puntosQueFaltan();
   const espera = msParaGirar();
   const botones = [{ txt: "Otra vez", cls: "btn", fn: arrancar }, { txt: "Otros juegos", cls: "btn alt", fn: volverHub }];
+  if (E.juego.menu) botones.splice(1, 0, { txt: "🗺️ Cambiar mapa", cls: "btn alt", fn: () => E.juego.menu() });
   if (ahora > 0 && espera === 0) botones.unshift({ txt: "🎡 Girar la ruleta", cls: "btn oro", href: "ruleta.html" });
 
   let resumen;
@@ -1745,37 +1747,84 @@ let _three = null;
 const cargarTHREE = () => window.THREE ? Promise.resolve() : (_three = _three || new Promise((ok, no) => {
   const s = document.createElement("script"); s.src = "three.min.js"; s.onload = ok; s.onerror = () => { _three = null; no(); }; document.head.appendChild(s);
 }));
+// ✏️ Mapas: colores, adornos, qué flota en el río y cómo van los carriles
+// carriles: [fila, dirección, velocidad (celdas/s), largo, separación, tipo]
+const MAPAS_RANA = [
+  { id: "ciudad", nombre: "Ciudad", emoji: "🏙️", cielo: "#ffd3e1", meta: "#62b872", metaFondo: "#57a866", agua: "#69c3f0", lecho: "#3a86b0",
+    calle: "#5d5868", linea: "#f4f1f7", vereda: "#ffb3c8", flores: ["#ff8fb1", "#c9a0ff"], autos: ["#ff6f91", "#5cb8ff", "#b48cff", "#ffb84d", "#4fd1c5"], bus: "#ffcf4d",
+    flota: { forma: "cil", col: "#a8714d", tapa: "#e8b98e", nudo: "#8f5b3b" }, tortu: { capa: "#3f8f53", piel: "#8fd18f", borde: "#e7d39a" }, deco: "arbusto",
+    luz: { hemi: .55, sol: 1.25, exp: .95 },
+    conf: [[1, 1, 1.1, 3, 6, "tronco"], [2, -1, 1.4, 2, 4, "tortuga"], [3, 1, 1.8, 4, 7, "tronco"], [4, -1, 1.2, 3, 5, "tortuga"], [5, 1, 1.5, 2, 5, "tronco"],
+      [7, -1, 1.3, 2, 6, "camion"], [8, 1, 2.2, 1, 4.5, "auto"], [9, -1, 1.6, 1, 3.5, "auto"], [10, 1, 1.1, 1, 4, "auto"], [11, -1, 1.9, 1, 5, "auto"]] },
+  { id: "dulce", nombre: "Dulcelandia", emoji: "🍭", cielo: "#ffe0f0", meta: "#ff9ecf", metaFondo: "#ff86c2", agua: "#8a5a3c", lecho: "#5b3826", aguaRug: .35,
+    calle: "#7d5a8c", linea: "#ffffff", vereda: "#fff0a8", flores: ["#ff6f91", "#5cb8ff"], autos: ["#ff4d8d", "#7bdcff", "#c08bff", "#ffd23f", "#6ee7b7"], bus: "#ff9f43",
+    flota: { forma: "galleta", col: "#e9b872", tapa: "#fff3d6", nudo: "#c98f45" }, tortu: { capa: "#ff7eb6", piel: "#ffd1e8", borde: "#ffffff", chispas: true }, deco: "dulce",
+    luz: { hemi: .6, sol: 1.2, exp: .95 },
+    conf: [[1, -1, 1.3, 3, 5, "tronco"], [2, 1, 1.6, 2, 4, "tortuga"], [3, -1, 2.0, 3, 6, "tronco"], [4, 1, 1.4, 3, 5, "tortuga"], [5, -1, 1.7, 2, 5, "tronco"],
+      [7, 1, 1.6, 2, 6, "camion"], [8, -1, 2.5, 1, 5, "auto"], [9, 1, 1.4, 1, 3.2, "auto"], [10, -1, 2.0, 1, 4.5, "auto"], [11, 1, 1.2, 1, 3.5, "auto"]] },
+  { id: "invierno", nombre: "Invierno", emoji: "❄️", cielo: "#dff1ff", meta: "#f4fbff", metaFondo: "#e8f4fb", agua: "#4fa6d8", lecho: "#2a6c96",
+    calle: "#7f8a9c", linea: "#ffffff", vereda: "#ffffff", flores: ["#9fd3ff", "#ffffff"], autos: ["#e4002b", "#2e7dd7", "#2b9d5a", "#f4f4f4", "#ff9f43"], bus: "#e4002b",
+    flota: { forma: "hielo", col: "#d8f0ff", tapa: "#ffffff", nudo: "#b9e0f7" }, tortu: { capa: "#4d6b7d", piel: "#cfe6f2", borde: "#ffffff" }, deco: "pino",
+    luz: { hemi: .7, sol: 1.1, exp: .9 },
+    conf: [[1, 1, 1.5, 2, 5, "tronco"], [2, -1, 1.7, 2, 4, "tortuga"], [3, 1, 2.1, 3, 6, "tronco"], [4, -1, 1.5, 2, 4, "tortuga"], [5, 1, 1.8, 2, 5, "tronco"],
+      [7, -1, 1.0, 2, 5, "camion"], [8, 1, 1.6, 1, 4, "auto"], [9, -1, 1.2, 1, 3.5, "auto"], [10, 1, 0.9, 1, 3.5, "auto"], [11, -1, 1.4, 1, 4, "auto"]] },
+  { id: "playa", nombre: "Playa", emoji: "🏖️", cielo: "#bdeeff", meta: "#f6dca0", metaFondo: "#efd08a", agua: "#2fc0d8", lecho: "#1a8fa6",
+    calle: "#c39a5e", linea: "#fff8e6", vereda: "#ffe9b8", flores: ["#ff6f91", "#ffb84d"], autos: ["#ff6f61", "#4fd1c5", "#ffd23f", "#ff8fd8", "#5cb8ff"], bus: "#4fd1c5",
+    flota: { forma: "tabla", col: "#ff8fb1", tapa: "#ffffff", nudo: "#5cb8ff" }, tortu: { capa: "#2f8a6a", piel: "#9be0c0", borde: "#e7d39a" }, deco: "palmera",
+    luz: { hemi: .6, sol: 1.35, exp: .95 },
+    conf: [[1, 1, 1.2, 2, 4, "tronco"], [2, -1, 1.3, 3, 5, "tortuga"], [3, 1, 1.6, 3, 6, "tronco"], [4, -1, 1.1, 2, 4, "tortuga"], [5, 1, 2.0, 2, 6, "tronco"],
+      [7, 1, 1.5, 2, 7, "camion"], [8, -1, 1.9, 1, 4, "auto"], [9, 1, 1.4, 1, 3.5, "auto"], [10, -1, 2.3, 1, 5, "auto"], [11, 1, 1.3, 1, 4, "auto"]] },
+  { id: "noche", nombre: "Noche", emoji: "🌙", cielo: "#1d1a3a", meta: "#2f6b48", metaFondo: "#29603f", agua: "#2b4f86", lecho: "#142640",
+    calle: "#34303f", linea: "#e9e6f2", vereda: "#6a5a8c", flores: ["#ffd54a", "#c9a0ff"], autos: ["#ff6f91", "#5cb8ff", "#b48cff", "#ffb84d", "#4fd1c5"], bus: "#ffcf4d",
+    flota: { forma: "cil", col: "#8a5d40", tapa: "#d9a97f", nudo: "#6f4630" }, tortu: { capa: "#3f8f53", piel: "#8fd18f", borde: "#e7d39a" }, deco: "farol", noche: true,
+    luz: { hemi: .3, sol: .5, exp: 1.15, solCol: 0xa9b8ff, hemiCol: 0x8c9cff },
+    conf: [[1, 1, 1.2, 3, 6, "tronco"], [2, -1, 1.5, 2, 4, "tortuga"], [3, 1, 1.9, 3, 6, "tronco"], [4, -1, 1.3, 3, 5, "tortuga"], [5, 1, 1.6, 2, 5, "tronco"],
+      [7, -1, 1.5, 2, 5, "camion"], [8, 1, 2.4, 1, 4, "auto"], [9, -1, 1.8, 1, 3.2, "auto"], [10, 1, 1.3, 1, 3.6, "auto"], [11, -1, 2.1, 1, 4.5, "auto"]] },
+];
 JUEGOS.push({
   id: "rana", nombre: "Ranita Cruza", emoji: "🐸", tipo: "canvas", tiempo: null, factor: 0.05,
   color: "#d9f5e0", desc: "Cruza la calle y el río", fondo: "#ffd9e4", medio: "❤️❤️❤️",
-  ayuda: "Desliza (o toca arriba, abajo o a los lados) para saltar 🐸<br>Esquiva los autos y cruza el río sobre troncos y tortugas. ¡Llena las 5 hojitas!<br><b>Cada vez que la ranita cae pierdes 25 puntos</b>",
-  CASTIGO: 25,
+  ayuda: "Usa las flechas ⬅️⬆️⬇️➡️ (o desliza el dedo) para saltar 🐸<br>Esquiva los autos y cruza el río. ¡Llena las 5 hojitas!<br><b>Cada vez que la ranita cae pierdes 25 puntos</b>",
+  CASTIGO: 25, BARRA: 66,
+  menu() {
+    const actual = S.leer("rana-mapa", "ciudad");
+    ovMostrar("🐸 Ranita Cruza", this.ayuda + "<br><br><b>Elige tu mapa</b>",
+      MAPAS_RANA.map(m => ({ txt: m.emoji + " " + m.nombre, cls: m.id === actual ? "btn" : "btn alt", fn: () => { S.escribir("rana-mapa", m.id); arrancar(); } })));
+  },
   init() {
-    if (this.r3) this.destroy();
+    if (this.r3 || this.bar) this.destroy();
+    this.tema = MAPAS_RANA.find(m => m.id === S.leer("rana-mapa", "ciudad")) || MAPAS_RANA[0];
+    api.hud("🍬 0");
     this.FIL = 13; this.COL = 9; this.nivel = 0; this.vidas = 3; this.metas = [false, false, false, false, false]; this.t = 0;
-    this.medir(); this.armar(); this.nacer(); this.hudv();
+    this.medir(); this.armar(); this.nacer(); this.hudv(); this.flechas();
     this.listo = false;
     cargarTHREE().then(() => { if (E.juego === this && E.corriendo) { this.iniciar3D(); this.listo = true; } })
       .catch(() => api.flota(E.W / 2, E.H / 2, "Sin internet para cargar el 3D 😿", "#d9534f"));
   },
+  flechas() {
+    const bar = document.createElement("div"); bar.className = "tbar"; this.bar = bar;
+    [["◀", -1, 0], ["▲", 0, -1], ["▼", 0, 1], ["▶", 1, 0]].forEach(([txt, dc, df]) => {
+      const b = document.createElement("button"); b.textContent = txt; b.setAttribute("aria-label", txt);
+      if (txt === "▲") b.style.flex = "1.5";
+      b.addEventListener("pointerdown", e => { e.preventDefault(); e.stopPropagation(); if (E.corriendo && !E.pausa) this.mover(dc, df); });
+      bar.appendChild(b);
+    });
+    E.zona.appendChild(bar);
+  },
   medir() { this.ch = E.H / this.FIL; this.cw = E.W / this.COL; },
   resize() {
     const cw0 = this.cw; this.medir(); const k = this.cw / cw0;
-    this.x *= k; this.vx *= k; for (const c of Object.values(this.carriles || {})) { c.v *= k; c.largo *= k; for (const o of c.objs) { o.x *= k; o.w *= k; } }
-    if (this.r3) { this.r3.setSize(E.W, E.H, false); this.cam.aspect = E.W / E.H; this.encuadrar(); }
+    this.x *= k; this.vx *= k; this.de.x *= k;
+    for (const c of Object.values(this.carriles || {})) { c.v *= k; c.largo *= k; for (const o of c.objs) { o.x *= k; o.w *= k; } }
+    if (this.r3) { this.r3.setSize(E.W, E.H - this.BARRA, false); this.cam.aspect = E.W / (E.H - this.BARRA); this.encuadrar(); }
   },
   hudv() { api.hud(undefined, "❤️".repeat(Math.max(0, this.vidas)) + "🤍".repeat(Math.max(0, 3 - this.vidas))); },
   armar() {
-    const v = 1 + this.nivel * .18, cw = this.cw;
-    const PASTEL = ["#ff6f91", "#5cb8ff", "#b48cff", "#ffb84d", "#4fd1c5"];
-    const conf = [   // [fila, dirección, velocidad (celdas/s), largo, separación, tipo]
-      [1, 1, 1.1, 3, 6, "tronco"], [2, -1, 1.4, 2, 4, "tortuga"], [3, 1, 1.8, 4, 7, "tronco"], [4, -1, 1.2, 3, 5, "tortuga"], [5, 1, 1.5, 2, 5, "tronco"],
-      [7, -1, 1.3, 2, 6, "camion"], [8, 1, 2.2, 1, 4.5, "auto"], [9, -1, 1.6, 1, 3.5, "auto"], [10, 1, 1.1, 1, 4, "auto"], [11, -1, 1.9, 1, 5, "auto"],
-    ];
+    const v = 1 + this.nivel * .18, cw = this.cw, T = this.tema;
     this.carriles = {};
-    for (const [f, d, vel, L, sep, tipo] of conf) {
+    for (const [f, d, vel, L, sep, tipo] of T.conf) {
       const objs = [], paso = (L + sep) * cw, n = Math.ceil((E.W + paso * 2) / paso) + 1, off = Math.random() * paso;
-      for (let i = 0; i < n; i++) objs.push({ x: off + i * paso - paso, w: L * cw, col: PASTEL[(i * 2 + f) % PASTEL.length], bus: tipo === "camion" && i % 2 === 0, buceo: tipo === "tortuga" && i % 3 === 1, fase: Math.random() * 6 });
+      for (let i = 0; i < n; i++) objs.push({ x: off + i * paso - paso, w: L * cw, col: T.autos[(i * 2 + f) % T.autos.length], bus: tipo === "camion" && i % 2 === 0, buceo: tipo === "tortuga" && i % 3 === 1, fase: Math.random() * 6 });
       this.carriles[f] = { d, v: vel * v * cw, tipo, objs, largo: n * paso, t: Math.random() * 5 };
     }
     if (this.r3) this.armarObjetos();
@@ -1785,7 +1834,7 @@ JUEGOS.push({
     this.salto = 0; this.dir = 0; this.vx = this.x; this.vy = this.f; this.de = { x: this.x, f: this.f };
   },
   mover(dc, df) {
-    if (this.muerta > 0 || !E.corriendo || !this.listo) return;
+    if (this.muerta > 0 || !E.corriendo || !this.listo || this.salto > .06) return;
     const nf = Math.max(0, Math.min(this.FIL - 1, this.f + df)), nx = this.x + dc * this.cw;
     if (nx < this.cw * .3 || nx > E.W - this.cw * .3) return;
     this.dir = df < 0 ? 0 : df > 0 ? Math.PI : dc < 0 ? Math.PI / 2 : -Math.PI / 2;
@@ -1815,14 +1864,11 @@ JUEGOS.push({
     if (como === "agua" && this.onda) { this.onda.position.set(this.wx(this.vx), -.17, this.wz(this.vy)); this.onda.visible = true; this.onda.userData.t = 0; }
     api.sacudir(como === "auto" ? 11 : 6); api.tono(como === "agua" ? 220 : 150, .3, "sawtooth"); api.vibrar(70);
   },
-  deslizar(d) { ({ arriba: () => this.mover(0, -1), abajo: () => this.mover(0, 1), izq: () => this.mover(-1, 0), der: () => this.mover(1, 0) })[d](); },
-  tocar(x, y, tipo) {
-    if (tipo === "abajo") { this.ini = { x, y }; return; }
-    if (tipo !== "arriba" || !this.ini) return;
-    const m = Math.hypot(x - this.ini.x, y - this.ini.y); this.ini = null;
-    if (m > 12) return;                                   // fue deslizar
-    const p = this.pantalla(this.wx(this.x), .3, this.wz(this.f)), dx = x - p.x, dy = y - p.y;
-    if (Math.abs(dy) > Math.abs(dx) * .7) this.mover(0, dy < 0 ? -1 : 1); else this.mover(dx < 0 ? -1 : 1, 0);
+  // un deslizamiento = un solo salto (aunque el dedo siga moviéndose)
+  tocar(x, y, tipo) { if (tipo === "abajo") this.usado = false; },
+  deslizar(d) {
+    if (this.usado) return; this.usado = true;
+    ({ arriba: () => this.mover(0, -1), abajo: () => this.mover(0, 1), izq: () => this.mover(-1, 0), der: () => this.mover(1, 0) })[d]();
   },
   update(dt) {
     if (!this.listo) return;
@@ -1848,7 +1894,7 @@ JUEGOS.push({
     if (c.tipo === "tronco" || c.tipo === "tortuga") {
       const sobre = c.objs.find(o => !o.abajo && this.x > o.x + ancho * .3 && this.x < o.x + o.w - ancho * .3);
       if (!sobre) return this.morir("agua");
-      this.x += c.d * c.v * dt; if (this.salto <= 0) this.vx = this.x;
+      this.x += c.d * c.v * dt; this.de.x += c.d * c.v * dt; if (this.salto <= 0) this.vx = this.x;
       if (this.x < 2 || this.x > E.W - 2) this.morir("agua");
     } else if (c.objs.some(o => this.x + ancho > o.x + 3 && this.x - ancho < o.x + o.w - 3)) this.morir("auto");
   },
@@ -1859,7 +1905,7 @@ JUEGOS.push({
   pantalla(x, y, z) {
     if (!this.cam) return { x: (x + this.COL / 2) * this.cw, y: (z + (this.FIL - 1) / 2 + .5) * this.ch };
     const v = new THREE.Vector3(x, y, z).project(this.cam);
-    return { x: (v.x + 1) / 2 * E.W, y: (1 - v.y) / 2 * E.H };
+    return { x: (v.x + 1) / 2 * E.W, y: (1 - v.y) / 2 * (E.H - this.BARRA) };
   },
   encuadrar() {
     // aleja la cámara hasta que todo el tablero (9 × 13) quepa en pantalla
@@ -1872,20 +1918,21 @@ JUEGOS.push({
     }
   },
   iniciar3D() {
-    const T = THREE, cv = document.createElement("canvas");
-    cv.style.cssText = "position:absolute;inset:0;width:100%;height:100%;display:block";
+    const T = THREE, M = this.tema, cv = document.createElement("canvas"), h = E.H - this.BARRA;
+    cv.style.cssText = `position:absolute;left:0;top:0;width:100%;height:calc(100% - ${this.BARRA}px);display:block`;
     E.zona.insertBefore(cv, E.cv); this.cv3 = cv;
     E.cv.style.position = "absolute"; E.cv.style.inset = "0";
+    E.zona.style.background = M.noche ? "#1d1a3a" : M.vereda;
     const r = new T.WebGLRenderer({ canvas: cv, antialias: true, powerPreference: "high-performance" });
-    r.setPixelRatio(Math.min(devicePixelRatio || 1, 2)); r.setSize(E.W, E.H, false);
+    r.setPixelRatio(Math.min(devicePixelRatio || 1, 2)); r.setSize(E.W, h, false);
     r.shadowMap.enabled = true; r.shadowMap.type = T.PCFSoftShadowMap;
-    r.outputEncoding = T.sRGBEncoding; r.toneMapping = T.ACESFilmicToneMapping; r.toneMappingExposure = .95;
+    r.outputEncoding = T.sRGBEncoding; r.toneMapping = T.ACESFilmicToneMapping; r.toneMappingExposure = M.luz.exp;
     this.r3 = r;
     const sc = new T.Scene(); this.sc = sc;
-    sc.background = new T.Color("#ffd3e1").convertSRGBToLinear();
-    this.cam = new T.PerspectiveCamera(34, E.W / E.H, .1, 200); this.encuadrar();
-    sc.add(new T.HemisphereLight(0xfff4f8, 0x88b090, .55));
-    const sol = new T.DirectionalLight(0xfff6ee, 1.25); sol.position.set(-6, 14, 7); sol.castShadow = true;
+    sc.background = new T.Color(M.cielo).convertSRGBToLinear();
+    this.cam = new T.PerspectiveCamera(34, E.W / h, .1, 200); this.encuadrar();
+    sc.add(new T.HemisphereLight(M.luz.hemiCol || 0xfff4f8, 0x88b090, M.luz.hemi));
+    const sol = new T.DirectionalLight(M.luz.solCol || 0xfff6ee, M.luz.sol); sol.position.set(-6, 14, 7); sol.castShadow = true;
     sol.shadow.mapSize.set(1024, 1024); Object.assign(sol.shadow.camera, { left: -10, right: 10, top: 10, bottom: -10, near: 1, far: 40 }); sol.shadow.bias = -.0015; sol.shadow.radius = 3;
     sc.add(sol);
     this.mats = {};
@@ -1899,43 +1946,70 @@ JUEGOS.push({
   },
   caja(w, h, d, col, o) { const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), typeof col === "string" ? this.mat(col, o) : col); m.castShadow = m.receiveShadow = true; return m; },
   mundo() {
-    const T = THREE, sc = this.sc, A = 16, g = new T.Group(); sc.add(g); this.gMundo = g;
+    const T = THREE, M = this.tema, sc = this.sc, A = 16, g = new T.Group(); sc.add(g); this.gMundo = g;
     const z = f => this.wz(f);
-    // meta: pasto alto con arbustos y bahías de agua con hojitas
-    const meta = this.caja(A, .5, 1, "#62b872"); meta.position.set(0, -.25, z(0)); g.add(meta);
-    const fondo = this.caja(A, .5, 4, "#57a866"); fondo.position.set(0, -.2, z(0) - 2.5); g.add(fondo);
+    // meta: borde alto con adornos y bahías de agua con hojitas
+    const meta = this.caja(A, .5, 1, M.meta); meta.position.set(0, -.25, z(0)); g.add(meta);
+    const fondo = this.caja(A, .5, 4, M.metaFondo); fondo.position.set(0, -.2, z(0) - 2.5); g.add(fondo);
     this.sentadas = [];
-    for (let s = 0; s < 5; s++) {
-      const x = this.wx((s * 2 + .5) * this.cw);
-      const bahia = this.caja(.96, .52, .98, "#6cc4ef", { roughness: .2 }); bahia.position.set(x, -.27, z(0)); bahia.castShadow = false; g.add(bahia);
+    const xs = [0, 1, 2, 3, 4].map(s => this.wx((s * 2 + .5) * this.cw));
+    for (const x of xs) {
+      const bahia = this.caja(.96, .52, .98, M.agua, { roughness: .2 }); bahia.position.set(x, -.27, z(0)); bahia.castShadow = false; g.add(bahia);
       const hoja = new T.Mesh(new T.CylinderGeometry(.42, .42, .07, 18, 1, false, .4, Math.PI * 2 - .5), this.mat("#3fbf5f")); hoja.position.set(x, .02, z(0)); hoja.receiveShadow = true; g.add(hoja);
       const fl = this.florecita("#ff8fb1"); fl.position.set(x + .16, .06, z(0) - .1); g.add(fl);
       const sent = this.modeloRana(.7); sent.position.set(x, .05, z(0)); sent.visible = false; g.add(sent); this.sentadas.push(sent);
     }
     for (let i = -7; i <= 7; i++) {
-      const enBahia = [0, 2, 4, 6, 8].some(s => Math.abs(this.wx((s + .5) * this.cw) - i * .5) < .6);
-      if (enBahia) continue;
-      const b = new T.Mesh(new T.IcosahedronGeometry(.42 + (i % 3) * .05, 0), this.mat(i % 2 ? "#3f9a54" : "#4cab60")); b.position.set(i * .5, .22, z(0) - .05 + (i % 2) * .12); b.castShadow = b.receiveShadow = true; g.add(b);
+      if (xs.some(x => Math.abs(x - i * .5) < .6)) continue;
+      const d = this.adorno(M.deco, i); d.position.set(i * .5, 0, z(0) - .05 + (i % 2) * .12); g.add(d);
     }
-    // río
-    const lecho = this.caja(A, .3, 5, "#3a86b0"); lecho.position.set(0, -.75, z(3)); g.add(lecho);
-    this.agua = new T.Mesh(new T.PlaneGeometry(A, 5, 48, 10), new T.MeshStandardMaterial({ color: "#69c3f0", roughness: .18, metalness: .1, transparent: true, opacity: .9, flatShading: true }));
+    for (let i = -6; i <= 6; i += 2) { const d = this.adorno(M.deco, i + 1); d.position.set(i * .7 + .3, 0, z(0) - 1.4 - (i % 4 ? .5 : 0)); d.scale.multiplyScalar(1.3); g.add(d); }
+    // río (o chocolate)
+    const lecho = this.caja(A, .3, 5, M.lecho); lecho.position.set(0, -.75, z(3)); g.add(lecho);
+    this.agua = new T.Mesh(new T.PlaneGeometry(A, 5, 48, 10), new T.MeshStandardMaterial({ color: M.agua, roughness: M.aguaRug || .18, metalness: .1, transparent: true, opacity: .92, flatShading: true }));
     this.agua.material.color.convertSRGBToLinear();
     this.agua.rotation.x = -Math.PI / 2; this.agua.position.set(0, -.2, z(3)); this.agua.receiveShadow = true; g.add(this.agua);
     this.aguaBase = Float32Array.from(this.agua.geometry.attributes.position.array);
-    // veredas rosadas con flores (centro y partida)
+    // veredas con flores (centro y partida)
     for (const f of [6, 12]) {
-      const v = this.caja(A, .4, 1, "#ffb3c8"); v.position.set(0, -.2, z(f)); g.add(v);
+      const v = this.caja(A, .4, 1, M.vereda); v.position.set(0, -.2, z(f)); g.add(v);
       const bord = this.caja(A, .08, .08, "#ffffff"); bord.position.set(0, .02, z(f) + (f === 6 ? .46 : -.46)); g.add(bord);
-      if (f === 6) for (let i = 0; i < this.COL; i++) { const fl = this.florecita(i % 2 ? "#ff8fb1" : "#c9a0ff"); fl.position.set(this.wx((i + .5) * this.cw) + (i % 2 ? .25 : -.2), 0, z(f) + (i % 3 - 1) * .22); g.add(fl); }
+      if (f === 6) for (let i = 0; i < this.COL; i++) { const fl = this.florecita(M.flores[i % 2]); fl.position.set(this.wx((i + .5) * this.cw) + (i % 2 ? .25 : -.2), 0, z(f) + (i % 3 - 1) * .22); g.add(fl); }
     }
-    const atras = this.caja(A, .4, 4, "#ffb3c8"); atras.position.set(0, -.21, z(12) + 2.5); g.add(atras);
+    const atras = this.caja(A, .4, 4, M.vereda); atras.position.set(0, -.21, z(12) + 2.5); g.add(atras);
     // calle con líneas
-    const calle = this.caja(A, .3, 5, "#5d5868", { roughness: .95 }); calle.position.set(0, -.17, z(9)); g.add(calle);
-    for (let f = 8; f <= 11; f++) for (let x = -8; x < 8; x += 1.1) { const l = this.caja(.55, .02, .06, "#f4f1f7"); l.position.set(x + .3, -.01, z(f) - .5); l.castShadow = false; g.add(l); }
+    const calle = this.caja(A, .3, 5, M.calle, { roughness: .95 }); calle.position.set(0, -.17, z(9)); g.add(calle);
+    for (let f = 8; f <= 11; f++) for (let x = -8; x < 8; x += 1.1) { const l = this.caja(.55, .02, .06, M.linea); l.position.set(x + .3, -.01, z(f) - .5); l.castShadow = false; g.add(l); }
+    if (M.id === "invierno") for (let i = 0; i < 40; i++) { const n = new T.Mesh(new T.SphereGeometry(.05 + Math.random() * .05, 5, 4), this.mat("#ffffff")); n.position.set((Math.random() - .5) * 10, -.01, z(7 + Math.random() * 5)); g.add(n); }
+    if (M.noche) for (let i = 0; i < 60; i++) { const e = new T.Mesh(new T.SphereGeometry(.04, 4, 3), new T.MeshBasicMaterial({ color: 0xfff6c8 })); e.position.set((Math.random() - .5) * 30, 3 + Math.random() * 8, -12 - Math.random() * 10); g.add(e); }
     // onda de agua (cuando cae)
     this.onda = new T.Mesh(new T.TorusGeometry(.3, .04, 6, 24), new T.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: .9 }));
     this.onda.rotation.x = -Math.PI / 2; this.onda.visible = false; sc.add(this.onda);
+  },
+  adorno(tipo, i) {
+    const T = THREE, g = new T.Group(), s = (m, x, y, z) => { m.position.set(x, y, z); m.castShadow = m.receiveShadow = true; g.add(m); return m; };
+    if (tipo === "arbusto") s(new T.Mesh(new T.IcosahedronGeometry(.42 + (Math.abs(i) % 3) * .05, 0), this.mat(i % 2 ? "#3f9a54" : "#4cab60")), 0, .22, 0);
+    else if (tipo === "dulce") {
+      const cols = ["#ff4d8d", "#7bdcff", "#ffd23f", "#c08bff"], c = cols[Math.abs(i) % 4];
+      s(new T.Mesh(new T.CylinderGeometry(.03, .03, .55, 6), this.mat("#ffffff")), 0, .28, 0);
+      const d = s(new T.Mesh(new T.CylinderGeometry(.26, .26, .09, 16), this.mat(c)), 0, .62, 0); d.rotation.x = Math.PI / 2;
+      const d2 = s(new T.Mesh(new T.TorusGeometry(.15, .035, 6, 16), this.mat("#ffffff")), 0, .62, .05);
+    } else if (tipo === "pino") {
+      s(new T.Mesh(new T.CylinderGeometry(.06, .07, .2, 6), this.mat("#7a5236")), 0, .1, 0);
+      s(new T.Mesh(new T.ConeGeometry(.38, .5, 7), this.mat("#2f7d55")), 0, .4, 0);
+      s(new T.Mesh(new T.ConeGeometry(.28, .4, 7), this.mat("#3a9064")), 0, .66, 0);
+      s(new T.Mesh(new T.ConeGeometry(.15, .2, 7), this.mat("#ffffff")), 0, .88, 0);
+    } else if (tipo === "palmera") {
+      const t = s(new T.Mesh(new T.CylinderGeometry(.05, .08, .8, 6), this.mat("#b88a5a")), 0, .4, 0); t.rotation.z = (i % 2 ? .15 : -.15);
+      for (let a = 0; a < 5; a++) { const h = s(new T.Mesh(new T.BoxGeometry(.5, .03, .14), this.mat("#3fae5f")), Math.cos(a * 1.257) * .2, .8, Math.sin(a * 1.257) * .2); h.rotation.y = -a * 1.257; h.rotation.z = -.35; }
+      s(new T.Mesh(new T.SphereGeometry(.07, 6, 5), this.mat("#7a5236")), .05, .74, .05);
+    } else if (tipo === "farol") {
+      if (Math.abs(i) % 2) { s(new T.Mesh(new T.IcosahedronGeometry(.36, 0), this.mat("#2b6a43")), 0, .2, 0); return g; }
+      s(new T.Mesh(new T.CylinderGeometry(.035, .05, .9, 6), this.mat("#3b3346")), 0, .45, 0);
+      s(new T.Mesh(new T.SphereGeometry(.13, 10, 8), this.mat("#fff2a0", { emissive: "#ffd86b", emissiveIntensity: 2.2 })), 0, .95, 0);
+      const halo = new T.Mesh(new T.PlaneGeometry(1.4, 1.4), new T.MeshBasicMaterial({ color: 0xffc94d, map: this.texLuz(), transparent: true, opacity: .8, depthWrite: false, blending: T.AdditiveBlending, toneMapped: false })); halo.rotation.x = -Math.PI / 2; halo.position.y = .02; g.add(halo);
+    }
+    return g;
   },
   florecita(col) {
     const T = THREE, g = new T.Group();
@@ -1952,39 +2026,64 @@ JUEGOS.push({
       const c = this.carriles[k];
       for (const o of c.objs) {
         const L = o.w / this.cw;
-        o.m = c.tipo === "tronco" ? this.modeloTronco(L) : c.tipo === "tortuga" ? this.modeloTortugas(Math.round(L)) : this.modeloAuto(L, o.bus ? "#ffcf4d" : o.col, c.tipo === "camion", o.bus);
+        o.m = c.tipo === "tronco" ? this.modeloTronco(L) : c.tipo === "tortuga" ? this.modeloTortugas(Math.round(L)) : this.modeloAuto(L, o.bus ? this.tema.bus : o.col, c.tipo === "camion", o.bus);
         if (c.tipo !== "tronco" && c.tipo !== "tortuga" && c.d < 0) o.m.rotation.y = Math.PI;
         o.m.position.z = this.wz(+k); this.gObj.add(o.m);
       }
     }
   },
   modeloTronco(L) {
-    const T = THREE, g = new T.Group(), l = L * .96 - .1;
-    const cuerpo = new T.Mesh(new T.CylinderGeometry(.3, .3, l, 12), this.mat("#a8714d")); cuerpo.rotation.z = Math.PI / 2; cuerpo.castShadow = cuerpo.receiveShadow = true; g.add(cuerpo);
-    for (const s of [-1, 1]) { const tapa = new T.Mesh(new T.CylinderGeometry(.27, .27, .03, 12), this.mat("#e8b98e")); tapa.rotation.z = Math.PI / 2; tapa.position.x = s * l / 2; g.add(tapa); }
-    for (let i = 0; i < L * 2; i++) { const n = this.caja(.18, .05, .06, "#8f5b3b"); n.position.set(-l / 2 + .3 + i * .45, .29, (i % 2 - .5) * .2); g.add(n); }
-    const hoja = new T.Mesh(new T.SphereGeometry(.07, 6, 4), this.mat("#6fcf7f")); hoja.position.set(l * .2, .31, .05); hoja.scale.set(1.6, .4, 1); g.add(hoja);
-    g.userData.y = -.13; return g;
+    const T = THREE, F = this.tema.flota, g = new T.Group(), l = L * .96 - .1;
+    if (F.forma === "cil") {
+      const cuerpo = new T.Mesh(new T.CylinderGeometry(.3, .3, l, 12), this.mat(F.col)); cuerpo.rotation.z = Math.PI / 2; cuerpo.castShadow = cuerpo.receiveShadow = true; g.add(cuerpo);
+      for (const s of [-1, 1]) { const tapa = new T.Mesh(new T.CylinderGeometry(.27, .27, .03, 12), this.mat(F.tapa)); tapa.rotation.z = Math.PI / 2; tapa.position.x = s * l / 2; g.add(tapa); }
+      for (let i = 0; i < L * 2; i++) { const n = this.caja(.18, .05, .06, F.nudo); n.position.set(-l / 2 + .3 + i * .45, .29, (i % 2 - .5) * .2); g.add(n); }
+      const hoja = new T.Mesh(new T.SphereGeometry(.07, 6, 4), this.mat("#6fcf7f")); hoja.position.set(l * .2, .31, .05); hoja.scale.set(1.6, .4, 1); g.add(hoja);
+      g.userData.y = -.13;
+    } else if (F.forma === "galleta") {
+      g.add(this.caja(l, .14, .66, F.col)); const crema = this.caja(l - .04, .08, .62, F.tapa); crema.position.y = .11; g.add(crema);
+      const arriba = this.caja(l, .12, .66, F.col); arriba.position.y = .21; g.add(arriba);
+      for (let i = 0; i < L * 3; i++) { const p = this.caja(.04, .02, .58, F.nudo); p.position.set(-l / 2 + .2 + i * .32, .28, 0); p.castShadow = false; g.add(p); }
+      g.userData.y = -.12;
+    } else if (F.forma === "hielo") {
+      const hielo = this.caja(l, .28, .74, F.col, { roughness: .08, metalness: .1, transparent: true, opacity: .88 }); g.add(hielo);
+      const nieve = this.caja(l * .8, .06, .5, "#ffffff"); nieve.position.set(-l * .05, .17, -.05); g.add(nieve);
+      g.userData.y = -.1;
+    } else {   // tabla de surf
+      const t = this.caja(l, .1, .5, F.col, { roughness: .35 }); g.add(t);
+      for (const sx of [-1, 1]) { const p = new T.Mesh(new T.CylinderGeometry(.25, .25, .1, 14, 1, false, sx > 0 ? -Math.PI / 2 : Math.PI / 2, Math.PI), this.mat(F.col, { roughness: .35 })); p.position.x = sx * l / 2; p.castShadow = true; g.add(p); }
+      const raya = this.caja(l + .2, .02, .1, F.nudo); raya.position.y = .06; raya.castShadow = false; g.add(raya);
+      g.userData.y = -.13;
+    }
+    return g;
   },
   modeloTortugas(n) {
-    const T = THREE, g = new T.Group();
+    const T = THREE, P = this.tema.tortu, g = new T.Group();
     for (let i = 0; i < n; i++) {
       const t = new T.Group();
-      const capa = new T.Mesh(new T.SphereGeometry(.36, 10, 6, 0, Math.PI * 2, 0, Math.PI / 2), this.mat("#3f8f53")); capa.scale.y = .62; capa.castShadow = true; t.add(capa);
-      const borde = new T.Mesh(new T.CylinderGeometry(.37, .37, .05, 14), this.mat("#e7d39a")); borde.position.y = .01; t.add(borde);
-      for (let a = 0; a < 6; a++) { const d = new T.Mesh(new T.CylinderGeometry(.07, .07, .02, 6), this.mat("#77c98a")); d.position.set(Math.cos(a) * .17, .2 - Math.abs(Math.sin(a)) * .02, Math.sin(a) * .17); d.rotation.x = .3 * Math.sin(a); t.add(d); }
-      const cab = new T.Mesh(new T.SphereGeometry(.11, 8, 6), this.mat("#8fd18f")); cab.position.set(-.42, .05, 0); t.add(cab);
-      for (const [px, pz] of [[-.2, .3], [.2, .3], [-.2, -.3], [.2, -.3]]) { const p = this.caja(.16, .05, .1, "#8fd18f"); p.position.set(px, -.01, pz); t.add(p); }
+      const capa = new T.Mesh(new T.SphereGeometry(.36, 10, 6, 0, Math.PI * 2, 0, Math.PI / 2), this.mat(P.capa)); capa.scale.y = .62; capa.castShadow = true; t.add(capa);
+      const borde = new T.Mesh(new T.CylinderGeometry(.37, .37, .05, 14), this.mat(P.borde)); borde.position.y = .01; t.add(borde);
+      if (P.chispas) { const cs = ["#ffffff", "#ffd23f", "#7bdcff", "#6ee7b7"]; for (let a = 0; a < 9; a++) { const ch = this.caja(.08, .02, .025, cs[a % 4]); ch.position.set(Math.cos(a * 2.4) * .2, .2, Math.sin(a * 2.4) * .2); ch.rotation.y = a; ch.castShadow = false; t.add(ch); } }
+      else for (let a = 0; a < 6; a++) { const d = new T.Mesh(new T.CylinderGeometry(.07, .07, .02, 6), this.mat(P.piel)); d.position.set(Math.cos(a) * .17, .2 - Math.abs(Math.sin(a)) * .02, Math.sin(a) * .17); d.rotation.x = .3 * Math.sin(a); t.add(d); }
+      const cab = new T.Mesh(new T.SphereGeometry(.11, 8, 6), this.mat(P.piel)); cab.position.set(-.42, .05, 0); t.add(cab);
+      for (const [px, pz] of [[-.2, .3], [.2, .3], [-.2, -.3], [.2, -.3]]) { const p = this.caja(.16, .05, .1, P.piel); p.position.set(px, -.01, pz); t.add(p); }
       t.position.x = (i - (n - 1) / 2); g.add(t);
     }
-    g.userData.y = -.08; g.userData.tortuga = true; return g;
+    g.userData.y = -.08; return g;
+  },
+  texLuz() {
+    if (this._luz) return this._luz;
+    const c = document.createElement("canvas"); c.width = c.height = 128; const x = c.getContext("2d");
+    const g = x.createRadialGradient(64, 64, 0, 64, 64, 64); g.addColorStop(0, "rgba(255,255,255,1)"); g.addColorStop(.45, "rgba(255,255,255,.45)"); g.addColorStop(1, "rgba(255,255,255,0)");
+    x.fillStyle = g; x.fillRect(0, 0, 128, 128);
+    return (this._luz = new THREE.CanvasTexture(c));
   },
   modeloAuto(L, col, grande, bus) {
-    const T = THREE, g = new T.Group(), l = L * .92 - .08, h = grande ? .55 : .32;
+    const T = THREE, g = new T.Group(), l = L * .92 - .08, h = grande ? .55 : .32, noche = this.tema.noche;
     const base = this.caja(l, h, .7, col); base.position.y = .18 + h / 2; g.add(base);
     const brillo = this.caja(l * .98, .03, .66, "#ffffff", { transparent: true, opacity: .12 }); brillo.position.y = .19 + h; brillo.castShadow = false; g.add(brillo);
     if (bus || grande) {
-      for (let i = 0; i < Math.floor(l / .42); i++) for (const s of [-1, 1]) { const v = this.caja(.3, .2, .02, "#cdeeff", { roughness: .1, metalness: .2 }); v.position.set(-l / 2 + .32 + i * .42, .18 + h * .62, s * .355); v.castShadow = false; g.add(v); }
+      for (let i = 0; i < Math.floor(l / .42); i++) for (const s of [-1, 1]) { const v = this.caja(.3, .2, .02, noche ? "#ffe9a8" : "#cdeeff", noche ? { emissive: "#ffd86b", emissiveIntensity: .8 } : { roughness: .1, metalness: .2 }); v.position.set(-l / 2 + .32 + i * .42, .18 + h * .62, s * .355); v.castShadow = false; g.add(v); }
       const fr = this.caja(.02, .22, .55, "#cdeeff", { roughness: .1 }); fr.position.set(l / 2 + .005, .18 + h * .62, 0); g.add(fr);
     } else {
       const cab = this.caja(l * .52, .26, .6, "#ffffff"); cab.position.set(-l * .06, .18 + h + .13, 0); g.add(cab);
@@ -1994,13 +2093,17 @@ JUEGOS.push({
     const rueda = new T.CylinderGeometry(.13, .13, .1, 12), rm = this.mat("#2f2a38");
     for (const sx of [-l * .32, l * .32]) for (const sz of [-.35, .35]) { const w = new T.Mesh(rueda, rm); w.rotation.x = Math.PI / 2; w.position.set(sx, .14, sz); w.castShadow = true; g.add(w); }
     for (const sz of [-.22, .22]) {
-      const fo = this.caja(.04, .08, .12, "#fff6a8", { emissive: "#fff2a0", emissiveIntensity: .8 }); fo.position.set(l / 2 + .01, .18 + h * .55, sz); g.add(fo);
-      const tr = this.caja(.04, .07, .1, "#ff5a6a", { emissive: "#ff3050", emissiveIntensity: .5 }); tr.position.set(-l / 2 - .01, .18 + h * .55, sz); g.add(tr);
+      const fo = this.caja(.04, .08, .12, "#fff6a8", { emissive: "#fff2a0", emissiveIntensity: noche ? 3 : .8 }); fo.position.set(l / 2 + .01, .18 + h * .55, sz); g.add(fo);
+      const tr = this.caja(.04, .07, .1, "#ff5a6a", { emissive: "#ff3050", emissiveIntensity: noche ? 2 : .5 }); tr.position.set(-l / 2 - .01, .18 + h * .55, sz); g.add(tr);
+    }
+    if (noche) {   // haz de luz de los focos sobre la calle
+      const haz = new T.Mesh(new T.PlaneGeometry(1.3, .9), new T.MeshBasicMaterial({ color: 0xffd76a, map: this.texLuz(), transparent: true, opacity: .9, depthWrite: false, blending: T.AdditiveBlending, toneMapped: false }));
+      haz.rotation.x = -Math.PI / 2; haz.position.set(l / 2 + .45, .02, 0); g.add(haz);
     }
     g.userData.y = 0; return g;
   },
   modeloRana(s = 1) {
-    const T = THREE, g = new T.Group(), verde = "#5fd38a", claro = "#b9f5c9";
+    const g = new THREE.Group(), verde = "#5fd38a", claro = "#b9f5c9";
     const add = (m, x, y, z) => { m.position.set(x * s, y * s, z * s); m.scale.multiplyScalar(s); g.add(m); return m; };
     add(this.caja(.56, .36, .6, verde), 0, .26, .02);
     add(this.caja(.46, .08, .5, claro), 0, .09, .04);
@@ -2020,7 +2123,6 @@ JUEGOS.push({
   crearRana() { this.rana3 = this.modeloRana(1.18); this.sc.add(this.rana3); },
   render3D() {
     const t = this.t;
-    // olitas del agua
     const pos = this.agua.geometry.attributes.position, b = this.aguaBase;
     for (let i = 0; i < pos.count; i++) pos.array[i * 3 + 2] = Math.sin(b[i * 3] * 1.3 + t * 1.8) * .035 + Math.cos(b[i * 3 + 1] * 2.1 + t * 1.3) * .03;
     pos.needsUpdate = true; this.agua.geometry.computeVertexNormals();
@@ -2041,9 +2143,9 @@ JUEGOS.push({
     const enRio = this.f >= 1 && this.f <= 5 && this.muerta <= 0;
     r.position.set(x, (enRio ? .12 : 0) + arco * .55, z);
     r.rotation.y += ((this.dir - r.rotation.y + Math.PI * 3) % (Math.PI * 2) - Math.PI) * .35;
-    r.rotation.y %= Math.PI * 2;
-    const S0 = 1; r.scale.set(S0 - arco * .1, S0 + arco * .25, S0 - arco * .1);
-    if (this.salto <= 0 && this.muerta <= 0) { const resp = 1 + Math.sin(t * 5) * .025; r.scale.set(1, resp, 1); }
+    r.rotation.y %= Math.PI * 2; r.rotation.z = 0;
+    r.scale.set(1 - arco * .1, 1 + arco * .25, 1 - arco * .1);
+    if (this.salto <= 0 && this.muerta <= 0) r.scale.set(1, 1 + Math.sin(t * 5) * .025, 1);
     for (const sx of [-1, 1]) r.userData["pata" + sx].scale.z = 1 + arco * .9;
     r.visible = true;
     if (this.muerta > 0) {
@@ -2060,19 +2162,19 @@ JUEGOS.push({
       c.fillStyle = "#7a6b8a"; c.font = "800 16px Nunito, sans-serif"; c.textAlign = "center"; c.fillText("Cargando el mundo 3D… 🐸", E.W / 2, E.H / 2); return;
     }
     this.render3D();
-    // barra de tiempo
-    const fr = Math.max(0, this.reloj / 30), bw = E.W - 24;
-    c.fillStyle = "#ffffffcc"; c.beginPath(); c.roundRect(12, E.H - 11, bw, 7, 4); c.fill();
-    c.fillStyle = fr > .3 ? "#3cb66a" : (Math.floor(this.t * 6) % 2 ? "#e4002b" : "#ff8fa8"); c.beginPath(); c.roundRect(12, E.H - 11, Math.max(7, bw * fr), 7, 4); c.fill();
+    const fr = Math.max(0, this.reloj / 30), bw = E.W - 24, y = E.H - this.BARRA - 10;
+    c.fillStyle = "#ffffffcc"; c.beginPath(); c.roundRect(12, y, bw, 7, 4); c.fill();
+    c.fillStyle = fr > .3 ? "#3cb66a" : (Math.floor(this.t * 6) % 2 ? "#e4002b" : "#ff8fa8"); c.beginPath(); c.roundRect(12, y, Math.max(7, bw * fr), 7, 4); c.fill();
   },
   destroy() {
     if (this.r3) {
-      this.sc.traverse(o => { o.geometry && o.geometry.dispose(); });
+      this.sc.traverse(o => { o.geometry && o.geometry.dispose(); o.material && o.material.dispose && o.material.dispose(); });
       Object.values(this.mats || {}).forEach(m => m.dispose());
       this.r3.dispose(); try { this.r3.forceContextLoss(); } catch {}
       this.cv3 && this.cv3.remove();
-      this.r3 = null; this.sc = null; this.cam = null; this.mats = {};
+      this.r3 = null; this.sc = null; this.cam = null; this.mats = {}; if (this._luz) { this._luz.dispose(); this._luz = null; }
     }
+    if (this.bar) { this.bar.remove(); this.bar = null; }
     E.cv.style.position = ""; E.cv.style.inset = "";
     this.listo = false;
   },
