@@ -1840,6 +1840,7 @@ JUEGOS.push({
     if (nx < this.cw * .3 || nx > E.W - this.cw * .3) return;
     this.dir = df < 0 ? 0 : df > 0 ? Math.PI : dc < 0 ? Math.PI / 2 : -Math.PI / 2;
     this.de = { x: this.vx, f: this.vy };
+    if (this.sc && !(this.f >= 1 && this.f <= 5)) this.particula("polvo", this.wx(this.vx), .05, this.wz(this.vy));
     this.f = nf; this.x = nx; this.salto = .16; api.vibrar(8); api.tono(520 + (this.FIL - nf) * 25, .04, "square", .03);
     if (nf < this.mejor) { this.mejor = nf; api.sumar(10); }
     if (nf === 0) this.llegar();
@@ -1847,7 +1848,7 @@ JUEGOS.push({
   llegar() {
     const slot = Math.round((this.x / this.cw - .5) / 2), cx = (slot * 2 + .5) * this.cw;
     if (slot < 0 || slot > 4 || Math.abs(this.x - cx) > this.cw * .55 || this.metas[slot]) return this.morir("arbusto");
-    this.metas[slot] = true; if (this.sentadas) this.sentadas[slot].visible = true;
+    this.metas[slot] = true; if (this.sentadas) { this.sentadas[slot].visible = true; this.particula("meta", this.wx(cx), .3, this.wz(0)); }
     const p = this.pantalla(this.wx(cx), .4, this.wz(0));
     api.sumar(50 + Math.ceil(this.reloj) * 2, p.x, p.y); api.chispas(p.x, p.y, "#7bd88f", 16, "💚"); api.tono(880, .15); api.vibrar(20);
     if (this.metas.every(Boolean)) {
@@ -1862,6 +1863,7 @@ JUEGOS.push({
     this.muerta = 1; this.como = como; this.vidas--; this.hudv();
     const p = this.pantalla(this.wx(this.vx), .5, this.wz(this.vy));
     api.sumar(-this.CASTIGO, p.x, p.y - 24);
+    if (como === "agua" && this.sc) this.particula("agua", this.wx(this.vx), -.1, this.wz(this.vy));
     if (como === "agua" && this.onda) { this.onda.position.set(this.wx(this.vx), -.17, this.wz(this.vy)); this.onda.visible = true; this.onda.userData.t = 0; }
     api.sacudir(como === "auto" ? 11 : 6); api.tono(como === "agua" ? 220 : 150, .3, "sawtooth"); api.vibrar(70);
   },
@@ -1880,7 +1882,7 @@ JUEGOS.push({
   },
   update(dt) {
     if (!this.listo) return;
-    this.t += dt;
+    this.t += dt; this.dtU = dt; this.medirFps(dt);
     for (const k in this.carriles) {
       const c = this.carriles[k]; c.t += dt;
       for (const o of c.objs) {
@@ -1934,25 +1936,55 @@ JUEGOS.push({
     const r = new T.WebGLRenderer({ canvas: cv, antialias: true, powerPreference: "high-performance" });
     r.setPixelRatio(Math.min(devicePixelRatio || 1, 2)); r.setSize(E.W, h, false);
     r.shadowMap.enabled = true; r.shadowMap.type = T.PCFSoftShadowMap;
-    r.outputEncoding = T.sRGBEncoding; r.toneMapping = T.ACESFilmicToneMapping; r.toneMappingExposure = M.luz.exp;
+    r.outputEncoding = T.sRGBEncoding; r.toneMapping = T.ACESFilmicToneMapping; r.toneMappingExposure = M.luz.exp * .88;
     this.r3 = r;
     const sc = new T.Scene(); this.sc = sc;
-    sc.background = new T.Color(M.cielo).convertSRGBToLinear();
+    sc.background = this.cieloTex(M);
+    // reflejos suaves del ambiente (sin archivos externos)
+    const pm = new T.PMREMGenerator(r), amb = new T.Scene();
+    amb.add(new T.Mesh(new T.SphereGeometry(20, 16, 12), new T.MeshBasicMaterial({ side: T.BackSide, map: this.cieloTex(M) })));
+    const panel = (c, x, y, z, s) => { const m = new T.Mesh(new T.PlaneGeometry(s, s), new T.MeshBasicMaterial({ color: c, side: T.DoubleSide })); m.position.set(x, y, z); m.lookAt(0, 0, 0); amb.add(m); };
+    panel(0xffffff, -6, 10, 6, 8); panel(M.noche ? 0x5566aa : 0xffe6f0, 8, 4, -4, 6);
+    this.envRT = pm.fromScene(amb, .04); sc.environment = this.envRT.texture; pm.dispose();
     this.cam = new T.PerspectiveCamera(34, E.W / h, .1, 200); this.encuadrar();
-    sc.add(new T.HemisphereLight(M.luz.hemiCol || 0xfff4f8, 0x88b090, M.luz.hemi));
+    sc.add(new T.HemisphereLight(M.luz.hemiCol || 0xfff4f8, 0x88b090, M.luz.hemi * .75));
     const sol = new T.DirectionalLight(M.luz.solCol || 0xfff6ee, M.luz.sol); sol.position.set(-6, 14, 7); sol.castShadow = true;
-    sol.shadow.mapSize.set(1024, 1024); Object.assign(sol.shadow.camera, { left: -10, right: 10, top: 10, bottom: -10, near: 1, far: 40 }); sol.shadow.bias = -.0015; sol.shadow.radius = 3;
+    sol.shadow.mapSize.set(2048, 2048); this.sol = sol; Object.assign(sol.shadow.camera, { left: -10, right: 10, top: 10, bottom: -10, near: 1, far: 40 }); sol.shadow.bias = -.0012; sol.shadow.normalBias = .02; sol.shadow.radius = 4;
     sc.add(sol);
+    const relleno = new T.DirectionalLight(M.noche ? 0x8090ff : 0xffd6e6, M.noche ? .25 : .35); relleno.position.set(7, 5, -6); sc.add(relleno);
+    this.fps = { n: 0, t: 0, ok: false };
     this.mats = {};
     this.mundo(); this.armarObjetos(); this.crearRana();
   },
+  cieloTex(M) {
+    const c = document.createElement("canvas"); c.width = 4; c.height = 256; const x = c.getContext("2d"), g = x.createLinearGradient(0, 0, 0, 256);
+    const arriba = M.noche ? "#0b0a24" : "#ffffff", abajo = M.cielo;
+    g.addColorStop(0, arriba); g.addColorStop(1, abajo); x.fillStyle = g; x.fillRect(0, 0, 4, 256);
+    const t = new THREE.CanvasTexture(c); t.encoding = THREE.sRGBEncoding; return t;
+  },
+  // si el celular va lento, baja la calidad sola (resolución y sombras)
+  medirFps(dt) {
+    const f = this.fps; if (!f || f.ok) return; f.n++; f.t += dt;
+    if (f.n >= 90) { f.ok = true; if (f.t / f.n > 1 / 40) { this.r3.setPixelRatio(1); this.sol.shadow.mapSize.set(1024, 1024); this.sol.shadow.map && this.sol.shadow.map.dispose(); this.sol.shadow.map = null; this.r3.setSize(E.W, E.H - this.BARRA, false); } }
+  },
   mat(col, o = {}) {
     const k = col + JSON.stringify(o); if (this.mats[k]) return this.mats[k];
-    const m = new THREE.MeshStandardMaterial(Object.assign({ color: col, roughness: .75, metalness: 0, flatShading: true }, o));
+    const m = new THREE.MeshStandardMaterial(Object.assign({ color: col, roughness: .62, metalness: 0, envMapIntensity: .3 }, o));
     m.color.convertSRGBToLinear(); if (o.emissive) m.emissive.convertSRGBToLinear();
     return (this.mats[k] = m);
   },
-  caja(w, h, d, col, o) { const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), typeof col === "string" ? this.mat(col, o) : col); m.castShadow = m.receiveShadow = true; return m; },
+  geoRedonda(w, h, d) {
+    const k = [w, h, d].map(v => v.toFixed(3)).join(); this.geos = this.geos || {}; if (this.geos[k]) return this.geos[k];
+    const r = Math.min(.07, Math.min(w, h, d) * .24), g = new THREE.BoxGeometry(w, h, d, 4, 4, 4), p = g.attributes.position, v = new THREE.Vector3(), n = new THREE.Vector3();
+    const ix = w / 2 - r, iy = h / 2 - r, iz = d / 2 - r;
+    for (let i = 0; i < p.count; i++) {
+      v.fromBufferAttribute(p, i);
+      const c = new THREE.Vector3(Math.max(-ix, Math.min(ix, v.x)), Math.max(-iy, Math.min(iy, v.y)), Math.max(-iz, Math.min(iz, v.z)));
+      n.subVectors(v, c); if (n.lengthSq() > 1e-9) { n.normalize().multiplyScalar(r); v.copy(c).add(n); p.setXYZ(i, v.x, v.y, v.z); }
+    }
+    g.computeVertexNormals(); return (this.geos[k] = g);
+  },
+  caja(w, h, d, col, o) { const m = new THREE.Mesh(this.geoRedonda(w, h, d), typeof col === "string" ? this.mat(col, o) : col); m.castShadow = m.receiveShadow = true; return m; },
   mundo() {
     const T = THREE, M = this.tema, sc = this.sc, A = 16, g = new T.Group(); sc.add(g); this.gMundo = g;
     const z = f => this.wz(f);
@@ -1974,10 +2006,13 @@ JUEGOS.push({
     for (let i = -6; i <= 6; i += 2) { const d = this.adorno(M.deco, i + 1); d.position.set(i * .7 + .3, 0, z(0) - 1.4 - (i % 4 ? .5 : 0)); d.scale.multiplyScalar(1.3); g.add(d); }
     // río (o chocolate)
     const lecho = this.caja(A, .3, 5, M.lecho); lecho.position.set(0, -.75, z(3)); g.add(lecho);
-    this.agua = new T.Mesh(new T.PlaneGeometry(A, 5, 48, 10), new T.MeshStandardMaterial({ color: M.agua, roughness: M.aguaRug || .18, metalness: .1, transparent: true, opacity: .92, flatShading: true }));
+    this.agua = new T.Mesh(new T.PlaneGeometry(A, 5, 96, 24), new T.MeshStandardMaterial({ color: M.agua, roughness: M.aguaRug || .1, metalness: .15, transparent: true, opacity: .93, envMapIntensity: .55 }));
     this.agua.material.color.convertSRGBToLinear();
     this.agua.rotation.x = -Math.PI / 2; this.agua.position.set(0, -.2, z(3)); this.agua.receiveShadow = true; g.add(this.agua);
     this.aguaBase = Float32Array.from(this.agua.geometry.attributes.position.array);
+    for (const zz of [z(1) - .5, z(5) + .5]) { const e = new T.Mesh(new T.PlaneGeometry(A, .14), new T.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: .55, depthWrite: false })); e.rotation.x = -Math.PI / 2; e.position.set(0, -.15, zz); g.add(e); this.espumas = (this.espumas || []).concat(e); }
+    this.destellos = [];
+    for (let i = 0; i < 26; i++) { const d = new T.Mesh(new T.PlaneGeometry(.16, .16), new T.MeshBasicMaterial({ color: 0xffffff, map: this.texLuz(), transparent: true, opacity: 0, depthWrite: false, blending: T.AdditiveBlending, toneMapped: false })); d.rotation.x = -Math.PI / 2; d.position.set((Math.random() - .5) * 10, -.14, z(1) + Math.random() * 4.6); d.userData.f = Math.random() * 6; g.add(d); this.destellos.push(d); }
     // veredas con flores (centro y partida)
     for (const f of [6, 12]) {
       const v = this.caja(A, .4, 1, M.vereda); v.position.set(0, -.2, z(f)); g.add(v);
@@ -1996,7 +2031,7 @@ JUEGOS.push({
   },
   adorno(tipo, i) {
     const T = THREE, g = new T.Group(), s = (m, x, y, z) => { m.position.set(x, y, z); m.castShadow = m.receiveShadow = true; g.add(m); return m; };
-    if (tipo === "arbusto") s(new T.Mesh(new T.IcosahedronGeometry(.42 + (Math.abs(i) % 3) * .05, 0), this.mat(i % 2 ? "#3f9a54" : "#4cab60")), 0, .22, 0);
+    if (tipo === "arbusto") s(new T.Mesh(new T.IcosahedronGeometry(.42 + (Math.abs(i) % 3) * .05, 1), this.mat(i % 2 ? "#3f9a54" : "#4cab60")), 0, .22, 0);
     else if (tipo === "dulce") {
       const cols = ["#ff4d8d", "#7bdcff", "#ffd23f", "#c08bff"], c = cols[Math.abs(i) % 4];
       s(new T.Mesh(new T.CylinderGeometry(.03, .03, .55, 6), this.mat("#ffffff")), 0, .28, 0);
@@ -2043,8 +2078,8 @@ JUEGOS.push({
   modeloTronco(L) {
     const T = THREE, F = this.tema.flota, g = new T.Group(), l = L * .96 - .1;
     if (F.forma === "cil") {
-      const cuerpo = new T.Mesh(new T.CylinderGeometry(.3, .3, l, 12), this.mat(F.col)); cuerpo.rotation.z = Math.PI / 2; cuerpo.castShadow = cuerpo.receiveShadow = true; g.add(cuerpo);
-      for (const s of [-1, 1]) { const tapa = new T.Mesh(new T.CylinderGeometry(.27, .27, .03, 12), this.mat(F.tapa)); tapa.rotation.z = Math.PI / 2; tapa.position.x = s * l / 2; g.add(tapa); }
+      const cuerpo = new T.Mesh(new T.CylinderGeometry(.3, .3, l, 24), this.mat(F.col, { roughness: .8 })); cuerpo.rotation.z = Math.PI / 2; cuerpo.castShadow = cuerpo.receiveShadow = true; g.add(cuerpo);
+      for (const s of [-1, 1]) { const tapa = new T.Mesh(new T.CylinderGeometry(.27, .27, .03, 24), this.mat(F.tapa)); tapa.rotation.z = Math.PI / 2; tapa.position.x = s * l / 2; g.add(tapa); }
       for (let i = 0; i < L * 2; i++) { const n = this.caja(.18, .05, .06, F.nudo); n.position.set(-l / 2 + .3 + i * .45, .29, (i % 2 - .5) * .2); g.add(n); }
       const hoja = new T.Mesh(new T.SphereGeometry(.07, 6, 4), this.mat("#6fcf7f")); hoja.position.set(l * .2, .31, .05); hoja.scale.set(1.6, .4, 1); g.add(hoja);
       g.userData.y = -.13;
@@ -2069,11 +2104,11 @@ JUEGOS.push({
     const T = THREE, P = this.tema.tortu, g = new T.Group();
     for (let i = 0; i < n; i++) {
       const t = new T.Group();
-      const capa = new T.Mesh(new T.SphereGeometry(.36, 10, 6, 0, Math.PI * 2, 0, Math.PI / 2), this.mat(P.capa)); capa.scale.y = .62; capa.castShadow = true; t.add(capa);
+      const capa = new T.Mesh(new T.SphereGeometry(.36, 20, 10, 0, Math.PI * 2, 0, Math.PI / 2), this.mat(P.capa, { roughness: .4 })); capa.scale.y = .62; capa.castShadow = true; t.add(capa);
       const borde = new T.Mesh(new T.CylinderGeometry(.37, .37, .05, 14), this.mat(P.borde)); borde.position.y = .01; t.add(borde);
       if (P.chispas) { const cs = ["#ffffff", "#ffd23f", "#7bdcff", "#6ee7b7"]; for (let a = 0; a < 9; a++) { const ch = this.caja(.08, .02, .025, cs[a % 4]); ch.position.set(Math.cos(a * 2.4) * .2, .2, Math.sin(a * 2.4) * .2); ch.rotation.y = a; ch.castShadow = false; t.add(ch); } }
       else for (let a = 0; a < 6; a++) { const d = new T.Mesh(new T.CylinderGeometry(.07, .07, .02, 6), this.mat(P.piel)); d.position.set(Math.cos(a) * .17, .2 - Math.abs(Math.sin(a)) * .02, Math.sin(a) * .17); d.rotation.x = .3 * Math.sin(a); t.add(d); }
-      const cab = new T.Mesh(new T.SphereGeometry(.11, 8, 6), this.mat(P.piel)); cab.position.set(-.42, .05, 0); t.add(cab);
+      const cab = new T.Mesh(new T.SphereGeometry(.11, 14, 10), this.mat(P.piel)); cab.position.set(-.42, .05, 0); t.add(cab);
       for (const [px, pz] of [[-.2, .3], [.2, .3], [-.2, -.3], [.2, -.3]]) { const p = this.caja(.16, .05, .1, P.piel); p.position.set(px, -.01, pz); t.add(p); }
       t.position.x = (i - (n - 1) / 2); g.add(t);
     }
@@ -2088,7 +2123,7 @@ JUEGOS.push({
   },
   modeloAuto(L, col, grande, bus) {
     const T = THREE, g = new T.Group(), l = L * .92 - .08, h = grande ? .55 : .32, noche = this.tema.noche;
-    const base = this.caja(l, h, .7, col); base.position.y = .18 + h / 2; g.add(base);
+    const base = this.caja(l, h, .7, col, { roughness: .32, metalness: .1, envMapIntensity: 1 }); base.position.y = .18 + h / 2; g.add(base);
     const brillo = this.caja(l * .98, .03, .66, "#ffffff", { transparent: true, opacity: .12 }); brillo.position.y = .19 + h; brillo.castShadow = false; g.add(brillo);
     if (bus || grande) {
       for (let i = 0; i < Math.floor(l / .42); i++) for (const s of [-1, 1]) { const v = this.caja(.3, .2, .02, noche ? "#ffe9a8" : "#cdeeff", noche ? { emissive: "#ffd86b", emissiveIntensity: .8 } : { roughness: .1, metalness: .2 }); v.position.set(-l / 2 + .32 + i * .42, .18 + h * .62, s * .355); v.castShadow = false; g.add(v); }
@@ -2098,8 +2133,8 @@ JUEGOS.push({
       const vid = this.caja(l * .54, .17, .62, "#bfe6ff", { roughness: .1, metalness: .2 }); vid.position.set(-l * .06, .18 + h + .14, 0); vid.castShadow = false; g.add(vid);
       const techo = this.caja(l * .48, .04, .56, col); techo.position.set(-l * .06, .18 + h + .28, 0); g.add(techo);
     }
-    const rueda = new T.CylinderGeometry(.13, .13, .1, 12), rm = this.mat("#2f2a38");
-    for (const sx of [-l * .32, l * .32]) for (const sz of [-.35, .35]) { const w = new T.Mesh(rueda, rm); w.rotation.x = Math.PI / 2; w.position.set(sx, .14, sz); w.castShadow = true; g.add(w); }
+    const rueda = new T.CylinderGeometry(.13, .13, .1, 20), rm = this.mat("#2f2a38", { roughness: .9 }), tapaR = new T.CylinderGeometry(.06, .06, .11, 14), tm = this.mat("#e9e6f2", { metalness: .6, roughness: .3 });
+    for (const sx of [-l * .32, l * .32]) for (const sz of [-.35, .35]) { const w = new T.Mesh(rueda, rm); w.rotation.x = Math.PI / 2; w.position.set(sx, .14, sz); w.castShadow = true; g.add(w); const tc = new T.Mesh(tapaR, tm); tc.rotation.x = Math.PI / 2; tc.position.copy(w.position); g.add(tc); }
     for (const sz of [-.22, .22]) {
       const fo = this.caja(.04, .08, .12, "#fff6a8", { emissive: "#fff2a0", emissiveIntensity: noche ? 3 : .8 }); fo.position.set(l / 2 + .01, .18 + h * .55, sz); g.add(fo);
       const tr = this.caja(.04, .07, .1, "#ff5a6a", { emissive: "#ff3050", emissiveIntensity: noche ? 2 : .5 }); tr.position.set(-l / 2 - .01, .18 + h * .55, sz); g.add(tr);
@@ -2118,15 +2153,41 @@ JUEGOS.push({
     add(this.caja(.5, .14, .2, claro), 0, .2, -.27);
     for (const sx of [-1, 1]) {
       add(this.caja(.2, .2, .2, verde), sx * .17, .5, -.15);
-      add(this.caja(.15, .15, .05, "#ffffff"), sx * .17, .52, -.255);
-      add(this.caja(.08, .1, .03, "#2b2233"), sx * .17, .51, -.285);
-      add(this.caja(.03, .03, .02, "#ffffff"), sx * .15, .54, -.3);
+      const ojo = new THREE.Group(); ojo.position.set(sx * .17 * s, .53 * s, -.22 * s); ojo.scale.setScalar(s); g.add(ojo);
+      const bl = new THREE.Mesh(new THREE.SphereGeometry(.085, 20, 14), this.mat("#ffffff", { roughness: .15 })); ojo.add(bl);
+      const pu = new THREE.Mesh(new THREE.SphereGeometry(.05, 16, 12), this.mat("#1d1626", { roughness: .05, metalness: .2, envMapIntensity: 1.4 })); pu.position.set(0, -.005, -.055); ojo.add(pu);
+      const br = new THREE.Mesh(new THREE.SphereGeometry(.016, 8, 6), new THREE.MeshBasicMaterial({ color: 0xffffff })); br.position.set(-sx * .015, .02, -.1); ojo.add(br);
+      (g.userData.ojos = g.userData.ojos || []).push(ojo);
       add(this.caja(.1, .05, .02, "#ff8fb1"), sx * .2, .3, -.315);
       g.userData["pata" + sx] = add(this.caja(.18, .14, .34, "#4cae66"), sx * .32, .1, .16);
       add(this.caja(.12, .1, .14, "#4cae66"), sx * .26, .07, -.24);
     }
     add(this.caja(.18, .03, .02, "#2b2233"), 0, .25, -.315);
     return g;
+  },
+  particula(tipo, x, y, z) {
+    const T = THREE, cols = tipo === "agua" ? ["#ffffff", "#bfe9ff", "#8fd6f7"] : tipo === "meta" ? ["#ff8fb1", "#7bd88f", "#ffd54a", "#c9a0ff"] : ["#ffffff", "#f3e6ef"];
+    const n = tipo === "polvo" ? 7 : tipo === "agua" ? 16 : 22;
+    this.parts3 = this.parts3 || [];
+    this.geoP = this.geoP || new T.SphereGeometry(.05, 8, 6);
+    for (let i = 0; i < n; i++) {
+      const m = new T.Mesh(tipo === "meta" ? (this.geoC = this.geoC || new T.BoxGeometry(.08, .02, .08)) : this.geoP, new T.MeshStandardMaterial({ color: cols[i % cols.length], transparent: true, roughness: .4 }));
+      m.material.color.convertSRGBToLinear();
+      const a = Math.random() * Math.PI * 2, v = tipo === "polvo" ? .9 + Math.random() * .6 : 1.4 + Math.random() * 1.6;
+      m.position.set(x, y, z); m.userData = { vx: Math.cos(a) * v * (tipo === "polvo" ? 1 : .5), vz: Math.sin(a) * v * (tipo === "polvo" ? 1 : .5), vy: tipo === "polvo" ? .4 : 2.5 + Math.random() * 2, t: 0, vida: tipo === "polvo" ? .45 : 1, g: tipo === "polvo" ? 0 : 9, rot: Math.random() * 8 };
+      if (tipo === "polvo") m.scale.setScalar(.8 + Math.random());
+      this.sc.add(m); this.parts3.push(m);
+    }
+  },
+  moverParts(dt) {
+    if (!this.parts3) return;
+    for (const m of this.parts3) {
+      const u = m.userData; u.t += dt; u.vy -= u.g * dt;
+      m.position.x += u.vx * dt; m.position.y += u.vy * dt; m.position.z += u.vz * dt; m.rotation.x += u.rot * dt; m.rotation.z += u.rot * dt;
+      if (u.g === 0) { u.vx *= .9; u.vz *= .9; m.scale.multiplyScalar(1 + dt * 2.5); }
+      m.material.opacity = Math.max(0, 1 - u.t / u.vida);
+    }
+    this.parts3 = this.parts3.filter(m => { if (m.userData.t < m.userData.vida) return true; this.sc.remove(m); m.material.dispose(); return false; });
   },
   crearRana() { this.rana3 = this.modeloRana(1.18); this.sc.add(this.rana3); },
   render3D() {
@@ -2163,6 +2224,12 @@ JUEGOS.push({
       else { r.position.y = q * 1.5; r.rotation.y += .3; r.visible = q < .8; }
     }
     if (this.onda.visible) { const u = (this.onda.userData.t += 1 / 60); this.onda.scale.setScalar(1 + u * 5); this.onda.material.opacity = Math.max(0, .9 - u * 1.2); if (u > .8) this.onda.visible = false; }
+    const dt = this.dtU || 1 / 60;
+    this.moverParts(dt);
+    if (this.destellos) for (const d of this.destellos) { const s2 = Math.sin(t * 2.3 + d.userData.f * 3); d.material.opacity = Math.max(0, s2 - .55) * 2; if (s2 < -.95) d.position.x = (Math.random() - .5) * 10; }
+    if (this.espumas) this.espumas.forEach((e, i) => e.material.opacity = .4 + Math.sin(t * 2 + i) * .15);
+    const parp = (t % 3.4) < .13 ? .12 : 1;
+    for (const o of r.userData.ojos || []) o.scale.y = o.scale.x * parp;
     this.r3.render(this.sc, this.cam);
   },
   draw(c) {
@@ -2170,6 +2237,8 @@ JUEGOS.push({
       c.fillStyle = "#7a6b8a"; c.font = "800 16px Nunito, sans-serif"; c.textAlign = "center"; c.fillText("Cargando el mundo 3D… 🐸", E.W / 2, E.H / 2); return;
     }
     this.render3D();
+    if (!this.vin) { const hh = E.H - this.BARRA; const g = c.createRadialGradient(E.W / 2, hh / 2, Math.min(E.W, hh) * .45, E.W / 2, hh / 2, Math.max(E.W, hh) * .75); g.addColorStop(0, "rgba(0,0,0,0)"); g.addColorStop(1, this.tema.noche ? "rgba(0,0,20,.45)" : "rgba(120,40,70,.16)"); this.vin = g; }
+    c.fillStyle = this.vin; c.fillRect(0, 0, E.W, E.H - this.BARRA);
     const fr = Math.max(0, this.reloj / 30), bw = E.W - 24, y = E.H - this.BARRA - 10;
     c.fillStyle = "#ffffffcc"; c.beginPath(); c.roundRect(12, y, bw, 7, 4); c.fill();
     c.fillStyle = fr > .3 ? "#3cb66a" : (Math.floor(this.t * 6) % 2 ? "#e4002b" : "#ff8fa8"); c.beginPath(); c.roundRect(12, y, Math.max(7, bw * fr), 7, 4); c.fill();
@@ -2180,6 +2249,7 @@ JUEGOS.push({
       Object.values(this.mats || {}).forEach(m => m.dispose());
       this.r3.dispose(); try { this.r3.forceContextLoss(); } catch {}
       this.cv3 && this.cv3.remove();
+      Object.values(this.geos || {}).forEach(g => g.dispose()); this.geos = {}; this.envRT && this.envRT.dispose(); this.parts3 = []; this.vin = null; this.geoP = this.geoC = null;
       this.r3 = null; this.sc = null; this.cam = null; this.mats = {}; if (this._luz) { this._luz.dispose(); this._luz = null; }
     }
     if (this.bar) { this.bar.remove(); this.bar = null; }
