@@ -1740,23 +1740,35 @@ JUEGOS.push({
   },
 });
 
-/* 18 ── Ranita Cruza (estilo Frogger) ─────────────────────── */
+/* 18 ── Ranita Cruza 3D (estilo Frogger / Crossy Road) ───── */
+let _three = null;
+const cargarTHREE = () => window.THREE ? Promise.resolve() : (_three = _three || new Promise((ok, no) => {
+  const s = document.createElement("script"); s.src = "three.min.js"; s.onload = ok; s.onerror = () => { _three = null; no(); }; document.head.appendChild(s);
+}));
 JUEGOS.push({
   id: "rana", nombre: "Ranita Cruza", emoji: "🐸", tipo: "canvas", tiempo: null, factor: 0.05,
-  color: "#d9f5e0", desc: "Cruza la calle y el río", fondo: "#bfe6c9", medio: "❤️❤️❤️",
+  color: "#d9f5e0", desc: "Cruza la calle y el río", fondo: "#ffd9e4", medio: "❤️❤️❤️",
   ayuda: "Desliza (o toca arriba, abajo o a los lados) para saltar 🐸<br>Esquiva los autos y cruza el río sobre troncos y tortugas. ¡Llena las 5 hojitas!<br><b>Cada vez que la ranita cae pierdes 25 puntos</b>",
   CASTIGO: 25,
   init() {
-    this.FIL = 13; this.COL = 9; this.nivel = 0; this.vidas = 3; this.metas = [false, false, false, false, false]; this.t = 0; this.efx = [];
+    if (this.r3) this.destroy();
+    this.FIL = 13; this.COL = 9; this.nivel = 0; this.vidas = 3; this.metas = [false, false, false, false, false]; this.t = 0;
     this.medir(); this.armar(); this.nacer(); this.hudv();
+    this.listo = false;
+    cargarTHREE().then(() => { if (E.juego === this && E.corriendo) { this.iniciar3D(); this.listo = true; } })
+      .catch(() => api.flota(E.W / 2, E.H / 2, "Sin internet para cargar el 3D 😿", "#d9534f"));
   },
   medir() { this.ch = E.H / this.FIL; this.cw = E.W / this.COL; },
+  resize() {
+    const cw0 = this.cw; this.medir(); const k = this.cw / cw0;
+    this.x *= k; this.vx *= k; for (const c of Object.values(this.carriles || {})) { c.v *= k; c.largo *= k; for (const o of c.objs) { o.x *= k; o.w *= k; } }
+    if (this.r3) { this.r3.setSize(E.W, E.H, false); this.cam.aspect = E.W / E.H; this.encuadrar(); }
+  },
   hudv() { api.hud(undefined, "❤️".repeat(Math.max(0, this.vidas)) + "🤍".repeat(Math.max(0, 3 - this.vidas))); },
   armar() {
     const v = 1 + this.nivel * .18, cw = this.cw;
     const PASTEL = ["#ff6f91", "#5cb8ff", "#b48cff", "#ffb84d", "#4fd1c5"];
-    // [fila, dirección, velocidad (celdas/s), largo, separación, tipo]
-    const conf = [
+    const conf = [   // [fila, dirección, velocidad (celdas/s), largo, separación, tipo]
       [1, 1, 1.1, 3, 6, "tronco"], [2, -1, 1.4, 2, 4, "tortuga"], [3, 1, 1.8, 4, 7, "tronco"], [4, -1, 1.2, 3, 5, "tortuga"], [5, 1, 1.5, 2, 5, "tronco"],
       [7, -1, 1.3, 2, 6, "camion"], [8, 1, 2.2, 1, 4.5, "auto"], [9, -1, 1.6, 1, 3.5, "auto"], [10, 1, 1.1, 1, 4, "auto"], [11, -1, 1.9, 1, 5, "auto"],
     ];
@@ -1766,38 +1778,41 @@ JUEGOS.push({
       for (let i = 0; i < n; i++) objs.push({ x: off + i * paso - paso, w: L * cw, col: PASTEL[(i * 2 + f) % PASTEL.length], bus: tipo === "camion" && i % 2 === 0, buceo: tipo === "tortuga" && i % 3 === 1, fase: Math.random() * 6 });
       this.carriles[f] = { d, v: vel * v * cw, tipo, objs, largo: n * paso, t: Math.random() * 5 };
     }
+    if (this.r3) this.armarObjetos();
   },
   nacer() {
     this.x = Math.floor(this.COL / 2) * this.cw + this.cw / 2; this.f = this.FIL - 1; this.mejor = this.f; this.reloj = 30; this.muerta = 0;
     this.salto = 0; this.dir = 0; this.vx = this.x; this.vy = this.f; this.de = { x: this.x, f: this.f };
   },
   mover(dc, df) {
-    if (this.muerta > 0 || !E.corriendo) return;
+    if (this.muerta > 0 || !E.corriendo || !this.listo) return;
     const nf = Math.max(0, Math.min(this.FIL - 1, this.f + df)), nx = this.x + dc * this.cw;
     if (nx < this.cw * .3 || nx > E.W - this.cw * .3) return;
-    this.dir = df < 0 ? 0 : df > 0 ? Math.PI : dc < 0 ? -Math.PI / 2 : Math.PI / 2;
+    this.dir = df < 0 ? 0 : df > 0 ? Math.PI : dc < 0 ? Math.PI / 2 : -Math.PI / 2;
     this.de = { x: this.vx, f: this.vy };
-    this.f = nf; this.x = nx; this.salto = .13; api.tono(520 + (this.FIL - nf) * 25, .04, "square", .03);
+    this.f = nf; this.x = nx; this.salto = .16; api.tono(520 + (this.FIL - nf) * 25, .04, "square", .03);
     if (nf < this.mejor) { this.mejor = nf; api.sumar(10); }
     if (nf === 0) this.llegar();
   },
   llegar() {
     const slot = Math.round((this.x / this.cw - .5) / 2), cx = (slot * 2 + .5) * this.cw;
     if (slot < 0 || slot > 4 || Math.abs(this.x - cx) > this.cw * .55 || this.metas[slot]) return this.morir("arbusto");
-    this.metas[slot] = true;
-    api.sumar(50 + Math.ceil(this.reloj) * 2, cx, this.ch * .5); api.chispas(cx, this.ch * .5, "#7bd88f", 16, "💚"); api.tono(880, .15); api.vibrar(20);
+    this.metas[slot] = true; if (this.sentadas) this.sentadas[slot].visible = true;
+    const p = this.pantalla(this.wx(cx), .4, this.wz(0));
+    api.sumar(50 + Math.ceil(this.reloj) * 2, p.x, p.y); api.chispas(p.x, p.y, "#7bd88f", 16, "💚"); api.tono(880, .15); api.vibrar(20);
     if (this.metas.every(Boolean)) {
       api.sumar(200, E.W / 2, E.H / 2); api.flota(E.W / 2, E.H / 2 - 30, "¡Nivel " + (this.nivel + 2) + "!", "#e4002b");
       api.chispas(E.W / 2, E.H / 2, "#ffd54a", 30, "⭐");
-      this.metas = [false, false, false, false, false]; this.nivel++; this.armar();
+      this.metas = [false, false, false, false, false]; this.sentadas && this.sentadas.forEach(s => s.visible = false); this.nivel++; this.armar();
     }
     this.nacer();
   },
   morir(como) {
     if (this.muerta > 0) return;
     this.muerta = 1; this.como = como; this.vidas--; this.hudv();
-    api.sumar(-this.CASTIGO, this.vx, (this.vy + .5) * this.ch - 24);
-    if (como === "agua") this.efx.push({ tipo: "ola", x: this.vx, y: (this.vy + .5) * this.ch, t: 0 });
+    const p = this.pantalla(this.wx(this.vx), .5, this.wz(this.vy));
+    api.sumar(-this.CASTIGO, p.x, p.y - 24);
+    if (como === "agua" && this.onda) { this.onda.position.set(this.wx(this.vx), -.17, this.wz(this.vy)); this.onda.visible = true; this.onda.userData.t = 0; }
     api.sacudir(como === "auto" ? 11 : 6); api.tono(como === "agua" ? 220 : 150, .3, "sawtooth"); api.vibrar(70);
   },
   deslizar(d) { ({ arriba: () => this.mover(0, -1), abajo: () => this.mover(0, 1), izq: () => this.mover(-1, 0), der: () => this.mover(1, 0) })[d](); },
@@ -1806,22 +1821,21 @@ JUEGOS.push({
     if (tipo !== "arriba" || !this.ini) return;
     const m = Math.hypot(x - this.ini.x, y - this.ini.y); this.ini = null;
     if (m > 12) return;                                   // fue deslizar
-    const fy = (this.f + .5) * this.ch, dx = x - this.x, dy = y - fy;
+    const p = this.pantalla(this.wx(this.x), .3, this.wz(this.f)), dx = x - p.x, dy = y - p.y;
     if (Math.abs(dy) > Math.abs(dx) * .7) this.mover(0, dy < 0 ? -1 : 1); else this.mover(dx < 0 ? -1 : 1, 0);
   },
   update(dt) {
+    if (!this.listo) return;
     this.t += dt;
     for (const k in this.carriles) {
       const c = this.carriles[k]; c.t += dt;
       for (const o of c.objs) {
         o.x += c.d * c.v * dt;
         if (c.d > 0 && o.x > E.W + o.w) o.x -= c.largo; else if (c.d < 0 && o.x + o.w < -o.w) o.x += c.largo;
-        if (o.buceo) { const s = Math.sin(c.t * 1.3 + o.fase); o.abajo = s > .55; o.aviso = s > .3 && !o.abajo; }
+        if (o.buceo) { const s = Math.sin(c.t * 1.3 + o.fase); o.abajo = s > .55; o.aviso = s > .3 && !o.abajo; o.prof = Math.max(0, Math.min(1, (s - .3) / .25)); }
       }
     }
-    for (const e of this.efx) e.t += dt; this.efx = this.efx.filter(e => e.t < .8);
-    // posición visual: salta en arco hacia la celda nueva
-    if (this.salto > 0) { this.salto -= dt; const p = 1 - Math.max(0, this.salto) / .13; this.vx = this.de.x + (this.x - this.de.x) * p; this.vy = this.de.f + (this.f - this.de.f) * p; }
+    if (this.salto > 0) { this.salto -= dt; const p = 1 - Math.max(0, this.salto) / .16; this.vx = this.de.x + (this.x - this.de.x) * p; this.vy = this.de.f + (this.f - this.de.f) * p; }
     else { this.vx = this.x; this.vy = this.f; }
     if (this.muerta > 0) {
       this.muerta -= dt;
@@ -1839,132 +1853,228 @@ JUEGOS.push({
     } else if (c.objs.some(o => this.x + ancho > o.x + 3 && this.x - ancho < o.x + o.w - 3)) this.morir("auto");
   },
 
-  /* ───── dibujo ───── */
-  rr(c, x, y, w, h, r) { c.beginPath(); c.roundRect(x, y, w, h, r); },
-  flor(c, x, y, r, col) {
-    c.fillStyle = col; for (let a = 0; a < 5; a++) { c.beginPath(); c.arc(x + Math.cos(a * 1.257) * r, y + Math.sin(a * 1.257) * r, r * .75, 0, 7); c.fill(); }
-    c.fillStyle = "#ffe066"; c.beginPath(); c.arc(x, y, r * .55, 0, 7); c.fill();
+  /* ───────── mundo 3D ───────── */
+  wx(px) { return px / this.cw - this.COL / 2; },
+  wz(f) { return f - (this.FIL - 1) / 2; },
+  pantalla(x, y, z) {
+    if (!this.cam) return { x: (x + this.COL / 2) * this.cw, y: (z + (this.FIL - 1) / 2 + .5) * this.ch };
+    const v = new THREE.Vector3(x, y, z).project(this.cam);
+    return { x: (v.x + 1) / 2 * E.W, y: (1 - v.y) / 2 * E.H };
   },
-  fondo(c) {
-    const ch = this.ch, W = E.W;
-    // meta: pasto con arbustos
-    c.fillStyle = "#5fb36f"; c.fillRect(0, 0, W, ch);
-    c.fillStyle = "#4e9e5d"; for (let i = 0; i < 12; i++) { c.beginPath(); c.arc(i * W / 11, ch * .15, ch * .32, 0, 7); c.fill(); }
-    // río
-    const g = c.createLinearGradient(0, ch, 0, 6 * ch); g.addColorStop(0, "#6cc4ef"); g.addColorStop(1, "#8fd6f7"); c.fillStyle = g; c.fillRect(0, ch, W, 5 * ch);
-    c.strokeStyle = "#ffffff55"; c.lineWidth = 2;
-    for (let f = 1; f <= 5; f++) for (let i = -1; i < 5; i++) {
-      const x0 = ((i * W / 4 + this.t * 18 * (f % 2 ? 1 : -1)) % (W + 80) + W + 80) % (W + 80) - 40, y0 = f * ch + ch * (.3 + .4 * (i % 2));
-      c.beginPath(); c.moveTo(x0, y0); c.quadraticCurveTo(x0 + 9, y0 - 4, x0 + 18, y0); c.quadraticCurveTo(x0 + 27, y0 + 4, x0 + 36, y0); c.stroke();
+  encuadrar() {
+    // aleja la cámara hasta que todo el tablero (9 × 13) quepa en pantalla
+    const cam = this.cam, dirV = new THREE.Vector3(0, 1.45, 1).normalize(), mira = new THREE.Vector3(0, 0, .55);
+    const esq = [[-4.6, -6.6], [4.6, -6.6], [-4.6, 6.6], [4.6, 6.6]];
+    cam.fov = 34; cam.updateProjectionMatrix();
+    for (let d = 10; d < 60; d += .25) {
+      cam.position.copy(mira).addScaledVector(dirV, d); cam.lookAt(mira); cam.updateMatrixWorld(); cam.updateProjectionMatrix();
+      if (esq.every(([x, z]) => { const p = new THREE.Vector3(x, 0, z).project(cam); return Math.abs(p.x) <= .99 && Math.abs(p.y) <= .97; })) break;
     }
-    // franjas seguras (centro y partida)
-    for (const f of [6, 12]) {
-      c.fillStyle = "#ffd9e4"; c.fillRect(0, f * ch, W, ch);
-      c.fillStyle = "#ffffff99"; for (let i = 0; i < 18; i++) { c.beginPath(); c.arc((i + .5) * W / 18, f * ch + (i % 2 ? ch * .3 : ch * .7), 2.2, 0, 7); c.fill(); }
-      if (f === 6) for (let i = 0; i < this.COL; i++) this.flor(c, (i + .5) * this.cw, f * ch + ch * .5, ch * .11, i % 2 ? "#ff8fb1" : "#c9a0ff");
-    }
-    // calle
-    c.fillStyle = "#6f6a7a"; c.fillRect(0, 7 * ch, W, 5 * ch);
-    c.fillStyle = "#ffffffcc"; c.fillRect(0, 7 * ch, W, 2); c.fillRect(0, 12 * ch - 2, W, 2);
-    for (let f = 8; f <= 11; f++) for (let x = 6; x < W; x += 30) c.fillRect(x, f * ch - 1.5, 16, 3);
   },
-  hojas(c) {
-    const ch = this.ch, cw = this.cw;
+  iniciar3D() {
+    const T = THREE, cv = document.createElement("canvas");
+    cv.style.cssText = "position:absolute;inset:0;width:100%;height:100%;display:block";
+    E.zona.insertBefore(cv, E.cv); this.cv3 = cv;
+    E.cv.style.position = "absolute"; E.cv.style.inset = "0";
+    const r = new T.WebGLRenderer({ canvas: cv, antialias: true, powerPreference: "high-performance" });
+    r.setPixelRatio(Math.min(devicePixelRatio || 1, 2)); r.setSize(E.W, E.H, false);
+    r.shadowMap.enabled = true; r.shadowMap.type = T.PCFSoftShadowMap;
+    r.outputEncoding = T.sRGBEncoding; r.toneMapping = T.ACESFilmicToneMapping; r.toneMappingExposure = .95;
+    this.r3 = r;
+    const sc = new T.Scene(); this.sc = sc;
+    sc.background = new T.Color("#ffd3e1").convertSRGBToLinear();
+    this.cam = new T.PerspectiveCamera(34, E.W / E.H, .1, 200); this.encuadrar();
+    sc.add(new T.HemisphereLight(0xfff4f8, 0x88b090, .55));
+    const sol = new T.DirectionalLight(0xfff6ee, 1.25); sol.position.set(-6, 14, 7); sol.castShadow = true;
+    sol.shadow.mapSize.set(1024, 1024); Object.assign(sol.shadow.camera, { left: -10, right: 10, top: 10, bottom: -10, near: 1, far: 40 }); sol.shadow.bias = -.0015; sol.shadow.radius = 3;
+    sc.add(sol);
+    this.mats = {};
+    this.mundo(); this.armarObjetos(); this.crearRana();
+  },
+  mat(col, o = {}) {
+    const k = col + JSON.stringify(o); if (this.mats[k]) return this.mats[k];
+    const m = new THREE.MeshStandardMaterial(Object.assign({ color: col, roughness: .75, metalness: 0, flatShading: true }, o));
+    m.color.convertSRGBToLinear(); if (o.emissive) m.emissive.convertSRGBToLinear();
+    return (this.mats[k] = m);
+  },
+  caja(w, h, d, col, o) { const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), typeof col === "string" ? this.mat(col, o) : col); m.castShadow = m.receiveShadow = true; return m; },
+  mundo() {
+    const T = THREE, sc = this.sc, A = 16, g = new T.Group(); sc.add(g); this.gMundo = g;
+    const z = f => this.wz(f);
+    // meta: pasto alto con arbustos y bahías de agua con hojitas
+    const meta = this.caja(A, .5, 1, "#62b872"); meta.position.set(0, -.25, z(0)); g.add(meta);
+    const fondo = this.caja(A, .5, 4, "#57a866"); fondo.position.set(0, -.2, z(0) - 2.5); g.add(fondo);
+    this.sentadas = [];
     for (let s = 0; s < 5; s++) {
-      const x = (s * 2 + .5) * cw, y = ch * .55;
-      c.fillStyle = "#3f8f53"; c.beginPath(); c.ellipse(x, y, cw * .48, ch * .42, 0, 0, 7); c.fill();
-      c.fillStyle = "#7fd88f"; c.beginPath(); c.moveTo(x, y); c.arc(x, y, ch * .34, -1.2, 4.6); c.closePath(); c.fill();
-      c.strokeStyle = "#5bbd6c"; c.lineWidth = 1.2; c.beginPath(); c.moveTo(x, y); c.lineTo(x - ch * .2, y + ch * .15); c.moveTo(x, y); c.lineTo(x + ch * .22, y + ch * .1); c.stroke();
-      if (this.metas[s]) this.rana(c, x, y, ch * .8, 0, 0, true);
-      else this.flor(c, x + ch * .15, y - ch * .08, ch * .07, "#ff8fb1");
+      const x = this.wx((s * 2 + .5) * this.cw);
+      const bahia = this.caja(.96, .52, .98, "#6cc4ef", { roughness: .2 }); bahia.position.set(x, -.27, z(0)); bahia.castShadow = false; g.add(bahia);
+      const hoja = new T.Mesh(new T.CylinderGeometry(.42, .42, .07, 18, 1, false, .4, Math.PI * 2 - .5), this.mat("#3fbf5f")); hoja.position.set(x, .02, z(0)); hoja.receiveShadow = true; g.add(hoja);
+      const fl = this.florecita("#ff8fb1"); fl.position.set(x + .16, .06, z(0) - .1); g.add(fl);
+      const sent = this.modeloRana(.7); sent.position.set(x, .05, z(0)); sent.visible = false; g.add(sent); this.sentadas.push(sent);
     }
-  },
-  tronco(c, x, y, w, h) {
-    const g = c.createLinearGradient(0, y, 0, y + h); g.addColorStop(0, "#c48a62"); g.addColorStop(1, "#8f5b3b");
-    c.fillStyle = g; this.rr(c, x, y, w, h, h / 2); c.fill();
-    c.strokeStyle = "#7a4a2e66"; c.lineWidth = 1.5;
-    for (let i = 1; i * 22 + 12 < w - h * .6; i++) { c.beginPath(); c.moveTo(x + i * 22, y + h * .25); c.lineTo(x + i * 22 + 10, y + h * .25); c.moveTo(x + i * 22 - 6, y + h * .7); c.lineTo(x + i * 22 + 6, y + h * .7); c.stroke(); }
-    for (const ex of [x + h * .45, x + w - h * .45]) {
-      c.fillStyle = "#e8b98e"; c.beginPath(); c.ellipse(ex, y + h / 2, h * .3, h * .42, 0, 0, 7); c.fill();
-      c.strokeStyle = "#b9835a"; c.beginPath(); c.ellipse(ex, y + h / 2, h * .16, h * .24, 0, 0, 7); c.stroke();
+    for (let i = -7; i <= 7; i++) {
+      const enBahia = [0, 2, 4, 6, 8].some(s => Math.abs(this.wx((s + .5) * this.cw) - i * .5) < .6);
+      if (enBahia) continue;
+      const b = new T.Mesh(new T.IcosahedronGeometry(.42 + (i % 3) * .05, 0), this.mat(i % 2 ? "#3f9a54" : "#4cab60")); b.position.set(i * .5, .22, z(0) - .05 + (i % 2) * .12); b.castShadow = b.receiveShadow = true; g.add(b);
     }
-  },
-  tortuga(c, x, y, s, o, d) {
-    c.save(); c.translate(x, y); if (d < 0) c.scale(-1, 1);
-    if (o.abajo) c.globalAlpha = .18; else if (o.aviso && Math.floor(this.t * 8) % 2) c.globalAlpha = .55;
-    c.fillStyle = "#8fd18f"; for (const [px, py] of [[-.3, -.32], [.3, -.32], [-.3, .32], [.3, .32]]) { c.beginPath(); c.ellipse(px * s, py * s, s * .14, s * .1, 0, 0, 7); c.fill(); }
-    c.beginPath(); c.arc(s * .44, 0, s * .14, 0, 7); c.fill();
-    c.fillStyle = "#222"; c.beginPath(); c.arc(s * .5, -s * .05, s * .03, 0, 7); c.fill();
-    const g = c.createRadialGradient(-s * .08, -s * .1, 2, 0, 0, s * .38); g.addColorStop(0, "#7ccf8a"); g.addColorStop(1, "#3f8f53");
-    c.fillStyle = g; c.beginPath(); c.ellipse(0, 0, s * .36, s * .3, 0, 0, 7); c.fill();
-    c.strokeStyle = "#ffffff55"; c.lineWidth = 1.2; c.beginPath(); c.moveTo(-s * .12, -s * .27); c.lineTo(-s * .12, s * .27); c.moveTo(s * .12, -s * .27); c.lineTo(s * .12, s * .27); c.moveTo(-s * .33, 0); c.lineTo(s * .33, 0); c.stroke();
-    c.restore();
-  },
-  auto(c, x, y, w, h, col, d, bus) {
-    c.save(); c.translate(x + w / 2, y + h / 2); if (d < 0) c.scale(-1, 1);
-    const L = w - 6, A = h * .66;
-    c.fillStyle = "#00000022"; this.rr(c, -L / 2 + 2, -A / 2 + 4, L, A, A * .3); c.fill();
-    c.fillStyle = "#3b3346"; for (const wx of bus ? [-L * .32, L * .3] : [-L * .28, L * .26]) for (const wy of [-A / 2, A / 2]) { this.rr(c, wx - h * .12, wy - h * .07, h * .24, h * .14, 3); c.fill(); }
-    c.fillStyle = col; this.rr(c, -L / 2, -A / 2, L, A, A * .32); c.fill();
-    c.fillStyle = "#ffffff55"; this.rr(c, -L / 2 + 3, -A / 2 + 2, L - 6, A * .22, 4); c.fill();
-    c.fillStyle = "#d6f1ff";
-    if (bus) for (let i = 0; i < 4; i++) { this.rr(c, -L * .38 + i * L * .2, -A * .28, L * .14, A * .56, 3); c.fill(); }
-    else { this.rr(c, L * .05, -A * .32, L * .2, A * .64, 4); c.fill(); this.rr(c, -L * .3, -A * .28, L * .14, A * .56, 4); c.fill(); }
-    c.fillStyle = "#fff6a8"; for (const s of [-1, 1]) { c.beginPath(); c.arc(L / 2 - 3, s * A * .3, h * .07, 0, 7); c.fill(); }
-    c.fillStyle = "#ff5a6a"; for (const s of [-1, 1]) { c.fillRect(-L / 2, s * A * .3 - 2, 3, 4); }
-    c.restore();
-  },
-  rana(c, x, y, s, ang, salto, sentada) {
-    c.save(); c.translate(x, y); c.rotate(ang); const e = 1 + salto * .35; c.scale(e, e);
-    const pata = sentada ? .0 : salto * .25;
-    c.fillStyle = "#4cae66";
-    for (const sx of [-1, 1]) {
-      c.beginPath(); c.ellipse(sx * s * .3, s * (.2 + pata), s * .13, s * (.16 + pata * .6), sx * .4, 0, 7); c.fill();
-      c.beginPath(); c.ellipse(sx * s * .26, -s * .12 - pata * s * .3, s * .08, s * .11, -sx * .4, 0, 7); c.fill();
+    // río
+    const lecho = this.caja(A, .3, 5, "#3a86b0"); lecho.position.set(0, -.75, z(3)); g.add(lecho);
+    this.agua = new T.Mesh(new T.PlaneGeometry(A, 5, 48, 10), new T.MeshStandardMaterial({ color: "#69c3f0", roughness: .18, metalness: .1, transparent: true, opacity: .9, flatShading: true }));
+    this.agua.material.color.convertSRGBToLinear();
+    this.agua.rotation.x = -Math.PI / 2; this.agua.position.set(0, -.2, z(3)); this.agua.receiveShadow = true; g.add(this.agua);
+    this.aguaBase = Float32Array.from(this.agua.geometry.attributes.position.array);
+    // veredas rosadas con flores (centro y partida)
+    for (const f of [6, 12]) {
+      const v = this.caja(A, .4, 1, "#ffb3c8"); v.position.set(0, -.2, z(f)); g.add(v);
+      const bord = this.caja(A, .08, .08, "#ffffff"); bord.position.set(0, .02, z(f) + (f === 6 ? .46 : -.46)); g.add(bord);
+      if (f === 6) for (let i = 0; i < this.COL; i++) { const fl = this.florecita(i % 2 ? "#ff8fb1" : "#c9a0ff"); fl.position.set(this.wx((i + .5) * this.cw) + (i % 2 ? .25 : -.2), 0, z(f) + (i % 3 - 1) * .22); g.add(fl); }
     }
-    const g = c.createRadialGradient(-s * .08, -s * .08, 2, 0, 0, s * .36); g.addColorStop(0, "#9ff0a8"); g.addColorStop(1, "#56c271");
-    c.fillStyle = g; c.beginPath(); c.ellipse(0, s * .04, s * .3, s * .3, 0, 0, 7); c.fill();
-    for (const sx of [-1, 1]) {
-      c.fillStyle = "#56c271"; c.beginPath(); c.arc(sx * s * .15, -s * .2, s * .12, 0, 7); c.fill();
-      c.fillStyle = "#fff"; c.beginPath(); c.arc(sx * s * .15, -s * .21, s * .085, 0, 7); c.fill();
-      c.fillStyle = "#2b2233"; c.beginPath(); c.arc(sx * s * .15, -s * .225, s * .05, 0, 7); c.fill();
-      c.fillStyle = "#fff"; c.beginPath(); c.arc(sx * s * .135, -s * .245, s * .018, 0, 7); c.fill();
-      c.fillStyle = "#ff8fb1aa"; c.beginPath(); c.ellipse(sx * s * .18, s * .02, s * .055, s * .035, 0, 0, 7); c.fill();
-    }
-    c.strokeStyle = "#2b2233"; c.lineWidth = Math.max(1.2, s * .03); c.lineCap = "round";
-    c.beginPath(); c.arc(0, -s * .02, s * .07, .3, Math.PI - .3); c.stroke();
-    c.restore();
+    const atras = this.caja(A, .4, 4, "#ffb3c8"); atras.position.set(0, -.21, z(12) + 2.5); g.add(atras);
+    // calle con líneas
+    const calle = this.caja(A, .3, 5, "#5d5868", { roughness: .95 }); calle.position.set(0, -.17, z(9)); g.add(calle);
+    for (let f = 8; f <= 11; f++) for (let x = -8; x < 8; x += 1.1) { const l = this.caja(.55, .02, .06, "#f4f1f7"); l.position.set(x + .3, -.01, z(f) - .5); l.castShadow = false; g.add(l); }
+    // onda de agua (cuando cae)
+    this.onda = new T.Mesh(new T.TorusGeometry(.3, .04, 6, 24), new T.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: .9 }));
+    this.onda.rotation.x = -Math.PI / 2; this.onda.visible = false; sc.add(this.onda);
   },
-  draw(c) {
-    const ch = this.ch, cw = this.cw, W = E.W;
-    this.fondo(c); this.hojas(c);
+  florecita(col) {
+    const T = THREE, g = new T.Group();
+    const tallo = new T.Mesh(new T.CylinderGeometry(.015, .015, .16, 5), this.mat("#4cab60")); tallo.position.y = .08; g.add(tallo);
+    for (let a = 0; a < 5; a++) { const p = new T.Mesh(new T.SphereGeometry(.05, 6, 5), this.mat(col)); p.position.set(Math.cos(a * 1.257) * .06, .17, Math.sin(a * 1.257) * .06); p.castShadow = true; g.add(p); }
+    const c = new T.Mesh(new T.SphereGeometry(.04, 6, 5), this.mat("#ffe066")); c.position.y = .18; g.add(c);
+    return g;
+  },
+  armarObjetos() {
+    const T = THREE;
+    if (this.gObj) { this.sc.remove(this.gObj); this.gObj.traverse(o => o.geometry && o.geometry.dispose()); }
+    this.gObj = new T.Group(); this.sc.add(this.gObj);
     for (const k in this.carriles) {
-      const cr = this.carriles[k], y = k * ch;
-      for (const o of cr.objs) {
-        if (o.x > W || o.x + o.w < 0) continue;
-        if (cr.tipo === "tronco") this.tronco(c, o.x + 2, y + ch * .14, o.w - 4, ch * .72);
-        else if (cr.tipo === "tortuga") for (let i = 0; i < Math.round(o.w / cw); i++) this.tortuga(c, o.x + (i + .5) * cw, y + ch * .5, ch * .95, o, cr.d);
-        else this.auto(c, o.x, y + ch * .08, o.w, ch * .84, o.bus ? "#ffcf4d" : o.col, cr.d, cr.tipo === "camion");
+      const c = this.carriles[k];
+      for (const o of c.objs) {
+        const L = o.w / this.cw;
+        o.m = c.tipo === "tronco" ? this.modeloTronco(L) : c.tipo === "tortuga" ? this.modeloTortugas(Math.round(L)) : this.modeloAuto(L, o.bus ? "#ffcf4d" : o.col, c.tipo === "camion", o.bus);
+        if (c.tipo !== "tronco" && c.tipo !== "tortuga" && c.d < 0) o.m.rotation.y = Math.PI;
+        o.m.position.z = this.wz(+k); this.gObj.add(o.m);
       }
     }
-    for (const e of this.efx) {
-      c.strokeStyle = `rgba(255,255,255,${1 - e.t / .8})`; c.lineWidth = 3;
-      for (const k of [1, .6]) { c.beginPath(); c.ellipse(e.x, e.y, ch * .7 * e.t * 1.6 * k + 4, ch * .3 * e.t * 1.6 * k + 2, 0, 0, 7); c.stroke(); }
+  },
+  modeloTronco(L) {
+    const T = THREE, g = new T.Group(), l = L * .96 - .1;
+    const cuerpo = new T.Mesh(new T.CylinderGeometry(.3, .3, l, 12), this.mat("#a8714d")); cuerpo.rotation.z = Math.PI / 2; cuerpo.castShadow = cuerpo.receiveShadow = true; g.add(cuerpo);
+    for (const s of [-1, 1]) { const tapa = new T.Mesh(new T.CylinderGeometry(.27, .27, .03, 12), this.mat("#e8b98e")); tapa.rotation.z = Math.PI / 2; tapa.position.x = s * l / 2; g.add(tapa); }
+    for (let i = 0; i < L * 2; i++) { const n = this.caja(.18, .05, .06, "#8f5b3b"); n.position.set(-l / 2 + .3 + i * .45, .29, (i % 2 - .5) * .2); g.add(n); }
+    const hoja = new T.Mesh(new T.SphereGeometry(.07, 6, 4), this.mat("#6fcf7f")); hoja.position.set(l * .2, .31, .05); hoja.scale.set(1.6, .4, 1); g.add(hoja);
+    g.userData.y = -.13; return g;
+  },
+  modeloTortugas(n) {
+    const T = THREE, g = new T.Group();
+    for (let i = 0; i < n; i++) {
+      const t = new T.Group();
+      const capa = new T.Mesh(new T.SphereGeometry(.36, 10, 6, 0, Math.PI * 2, 0, Math.PI / 2), this.mat("#3f8f53")); capa.scale.y = .62; capa.castShadow = true; t.add(capa);
+      const borde = new T.Mesh(new T.CylinderGeometry(.37, .37, .05, 14), this.mat("#e7d39a")); borde.position.y = .01; t.add(borde);
+      for (let a = 0; a < 6; a++) { const d = new T.Mesh(new T.CylinderGeometry(.07, .07, .02, 6), this.mat("#77c98a")); d.position.set(Math.cos(a) * .17, .2 - Math.abs(Math.sin(a)) * .02, Math.sin(a) * .17); d.rotation.x = .3 * Math.sin(a); t.add(d); }
+      const cab = new T.Mesh(new T.SphereGeometry(.11, 8, 6), this.mat("#8fd18f")); cab.position.set(-.42, .05, 0); t.add(cab);
+      for (const [px, pz] of [[-.2, .3], [.2, .3], [-.2, -.3], [.2, -.3]]) { const p = this.caja(.16, .05, .1, "#8fd18f"); p.position.set(px, -.01, pz); t.add(p); }
+      t.position.x = (i - (n - 1) / 2); g.add(t);
     }
-    const fy = (this.vy + .5) * ch, sal = this.salto > 0 ? Math.sin((1 - this.salto / .13) * Math.PI) : 0;
-    if (this.muerta > 0) {
-      const p = 1 - this.muerta;
-      if (this.como === "auto") { c.save(); c.translate(this.vx, fy); c.scale(1.4, .35); this.rana(c, 0, 0, ch * .9, this.dir, 0); c.restore(); c.font = (ch * .5) + "px serif"; c.textAlign = "center"; c.textBaseline = "middle"; c.fillText("💫", this.vx, fy - ch * .5); }
-      else if (this.como === "agua") { c.globalAlpha = Math.max(0, 1 - p * 2); this.rana(c, this.vx, fy + p * 8, ch * .9 * (1 - p * .6), this.dir, 0); c.globalAlpha = 1; }
-      else { c.globalAlpha = Math.max(0, 1 - p); this.rana(c, this.vx, fy - p * 20, ch * .9, this.dir, 0); c.globalAlpha = 1; c.font = (ch * .5) + "px serif"; c.textAlign = "center"; c.textBaseline = "middle"; c.fillText(this.como === "tiempo" ? "⏰" : "🌿", this.vx, fy - ch * .6); }
+    g.userData.y = -.08; g.userData.tortuga = true; return g;
+  },
+  modeloAuto(L, col, grande, bus) {
+    const T = THREE, g = new T.Group(), l = L * .92 - .08, h = grande ? .55 : .32;
+    const base = this.caja(l, h, .7, col); base.position.y = .18 + h / 2; g.add(base);
+    const brillo = this.caja(l * .98, .03, .66, "#ffffff", { transparent: true, opacity: .12 }); brillo.position.y = .19 + h; brillo.castShadow = false; g.add(brillo);
+    if (bus || grande) {
+      for (let i = 0; i < Math.floor(l / .42); i++) for (const s of [-1, 1]) { const v = this.caja(.3, .2, .02, "#cdeeff", { roughness: .1, metalness: .2 }); v.position.set(-l / 2 + .32 + i * .42, .18 + h * .62, s * .355); v.castShadow = false; g.add(v); }
+      const fr = this.caja(.02, .22, .55, "#cdeeff", { roughness: .1 }); fr.position.set(l / 2 + .005, .18 + h * .62, 0); g.add(fr);
     } else {
-      c.fillStyle = "#00000022"; c.beginPath(); c.ellipse(this.vx, fy + ch * .3, ch * .26 * (1 - sal * .3), ch * .08, 0, 0, 7); c.fill();
-      this.rana(c, this.vx, fy - sal * ch * .25, ch * .9, this.dir, sal);
+      const cab = this.caja(l * .52, .26, .6, "#ffffff"); cab.position.set(-l * .06, .18 + h + .13, 0); g.add(cab);
+      const vid = this.caja(l * .54, .17, .62, "#bfe6ff", { roughness: .1, metalness: .2 }); vid.position.set(-l * .06, .18 + h + .14, 0); vid.castShadow = false; g.add(vid);
+      const techo = this.caja(l * .48, .04, .56, col); techo.position.set(-l * .06, .18 + h + .28, 0); g.add(techo);
     }
-    // reloj
-    const fr = Math.max(0, this.reloj / 30), bw = W - 24;
-    c.fillStyle = "#ffffffcc"; this.rr(c, 12, E.H - 9, bw, 6, 3); c.fill();
-    c.fillStyle = fr > .3 ? "#3cb66a" : (Math.floor(this.t * 6) % 2 ? "#e4002b" : "#ff8fa8"); this.rr(c, 12, E.H - 9, Math.max(6, bw * fr), 6, 3); c.fill();
+    const rueda = new T.CylinderGeometry(.13, .13, .1, 12), rm = this.mat("#2f2a38");
+    for (const sx of [-l * .32, l * .32]) for (const sz of [-.35, .35]) { const w = new T.Mesh(rueda, rm); w.rotation.x = Math.PI / 2; w.position.set(sx, .14, sz); w.castShadow = true; g.add(w); }
+    for (const sz of [-.22, .22]) {
+      const fo = this.caja(.04, .08, .12, "#fff6a8", { emissive: "#fff2a0", emissiveIntensity: .8 }); fo.position.set(l / 2 + .01, .18 + h * .55, sz); g.add(fo);
+      const tr = this.caja(.04, .07, .1, "#ff5a6a", { emissive: "#ff3050", emissiveIntensity: .5 }); tr.position.set(-l / 2 - .01, .18 + h * .55, sz); g.add(tr);
+    }
+    g.userData.y = 0; return g;
+  },
+  modeloRana(s = 1) {
+    const T = THREE, g = new T.Group(), verde = "#5fd38a", claro = "#b9f5c9";
+    const add = (m, x, y, z) => { m.position.set(x * s, y * s, z * s); m.scale.multiplyScalar(s); g.add(m); return m; };
+    add(this.caja(.56, .36, .6, verde), 0, .26, .02);
+    add(this.caja(.46, .08, .5, claro), 0, .09, .04);
+    add(this.caja(.5, .14, .2, claro), 0, .2, -.27);
+    for (const sx of [-1, 1]) {
+      add(this.caja(.2, .2, .2, verde), sx * .17, .5, -.15);
+      add(this.caja(.15, .15, .05, "#ffffff"), sx * .17, .52, -.255);
+      add(this.caja(.08, .1, .03, "#2b2233"), sx * .17, .51, -.285);
+      add(this.caja(.03, .03, .02, "#ffffff"), sx * .15, .54, -.3);
+      add(this.caja(.1, .05, .02, "#ff8fb1"), sx * .2, .3, -.315);
+      g.userData["pata" + sx] = add(this.caja(.18, .14, .34, "#4cae66"), sx * .32, .1, .16);
+      add(this.caja(.12, .1, .14, "#4cae66"), sx * .26, .07, -.24);
+    }
+    add(this.caja(.18, .03, .02, "#2b2233"), 0, .25, -.315);
+    return g;
+  },
+  crearRana() { this.rana3 = this.modeloRana(1.18); this.sc.add(this.rana3); },
+  render3D() {
+    const t = this.t;
+    // olitas del agua
+    const pos = this.agua.geometry.attributes.position, b = this.aguaBase;
+    for (let i = 0; i < pos.count; i++) pos.array[i * 3 + 2] = Math.sin(b[i * 3] * 1.3 + t * 1.8) * .035 + Math.cos(b[i * 3 + 1] * 2.1 + t * 1.3) * .03;
+    pos.needsUpdate = true; this.agua.geometry.computeVertexNormals();
+    for (const k in this.carriles) {
+      const c = this.carriles[k];
+      for (const o of c.objs) {
+        if (!o.m) continue;
+        o.m.position.x = this.wx(o.x + o.w / 2);
+        let y = o.m.userData.y;
+        if (c.tipo === "tronco" || c.tipo === "tortuga") y += Math.sin(t * 2 + o.fase) * .025;
+        if (o.buceo) { y -= (o.prof || 0) * .5; if (o.aviso && Math.floor(t * 8) % 2) y += .04; }
+        o.m.position.y = y;
+        if (c.tipo === "auto" || c.tipo === "camion") o.m.position.y = Math.abs(Math.sin(t * 14 + o.fase)) * .015;
+      }
+    }
+    const r = this.rana3, x = this.wx(this.vx), z = this.wz(this.vy);
+    const p = this.salto > 0 ? 1 - this.salto / .16 : 1, arco = this.salto > 0 ? Math.sin(p * Math.PI) : 0;
+    const enRio = this.f >= 1 && this.f <= 5 && this.muerta <= 0;
+    r.position.set(x, (enRio ? .12 : 0) + arco * .55, z);
+    r.rotation.y += ((this.dir - r.rotation.y + Math.PI * 3) % (Math.PI * 2) - Math.PI) * .35;
+    r.rotation.y %= Math.PI * 2;
+    const S0 = 1; r.scale.set(S0 - arco * .1, S0 + arco * .25, S0 - arco * .1);
+    if (this.salto <= 0 && this.muerta <= 0) { const resp = 1 + Math.sin(t * 5) * .025; r.scale.set(1, resp, 1); }
+    for (const sx of [-1, 1]) r.userData["pata" + sx].scale.z = 1 + arco * .9;
+    r.visible = true;
+    if (this.muerta > 0) {
+      const q = 1 - this.muerta;
+      if (this.como === "auto") r.scale.set(1.45, .14, 1.45);
+      else if (this.como === "agua") { r.position.y = -.1 - q * .8; r.rotation.z = q * 1.2; }
+      else { r.position.y = q * 1.5; r.rotation.y += .3; r.visible = q < .8; }
+    }
+    if (this.onda.visible) { const u = (this.onda.userData.t += 1 / 60); this.onda.scale.setScalar(1 + u * 5); this.onda.material.opacity = Math.max(0, .9 - u * 1.2); if (u > .8) this.onda.visible = false; }
+    this.r3.render(this.sc, this.cam);
+  },
+  draw(c) {
+    if (!this.r3) {
+      c.fillStyle = "#7a6b8a"; c.font = "800 16px Nunito, sans-serif"; c.textAlign = "center"; c.fillText("Cargando el mundo 3D… 🐸", E.W / 2, E.H / 2); return;
+    }
+    this.render3D();
+    // barra de tiempo
+    const fr = Math.max(0, this.reloj / 30), bw = E.W - 24;
+    c.fillStyle = "#ffffffcc"; c.beginPath(); c.roundRect(12, E.H - 11, bw, 7, 4); c.fill();
+    c.fillStyle = fr > .3 ? "#3cb66a" : (Math.floor(this.t * 6) % 2 ? "#e4002b" : "#ff8fa8"); c.beginPath(); c.roundRect(12, E.H - 11, Math.max(7, bw * fr), 7, 4); c.fill();
+  },
+  destroy() {
+    if (this.r3) {
+      this.sc.traverse(o => { o.geometry && o.geometry.dispose(); });
+      Object.values(this.mats || {}).forEach(m => m.dispose());
+      this.r3.dispose(); try { this.r3.forceContextLoss(); } catch {}
+      this.cv3 && this.cv3.remove();
+      this.r3 = null; this.sc = null; this.cam = null; this.mats = {};
+    }
+    E.cv.style.position = ""; E.cv.style.inset = "";
+    this.listo = false;
   },
 });
 

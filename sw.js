@@ -1,7 +1,7 @@
 /* Service worker: deja el sitio funcionando sin internet y siempre trae lo último */
-const CACHE = "frasco-v2";
+const CACHE = "frasco-v3";
 const ARCHIVOS = [
-  "./", "./index.html", "./juegos.html", "./juegos.js", "./ruleta.html", "./comida.html", "./aburrida.html",
+  "./", "./index.html", "./juegos.html", "./juegos.js", "./three.min.js", "./ruleta.html", "./comida.html", "./aburrida.html",
   "./pwa.js", "./kawaii.css", "./kawaii.js", "./manifest.webmanifest", "./icono-192.png", "./icono-512.png", "./icono-maskable.png",
 ];
 
