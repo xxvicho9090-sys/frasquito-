@@ -1784,8 +1784,8 @@ const MAPAS_RANA = [
 JUEGOS.push({
   id: "rana", nombre: "Ranita Cruza", emoji: "🐸", tipo: "canvas", tiempo: null, factor: 0.05,
   color: "#d9f5e0", desc: "Cruza la calle y el río", fondo: "#ffd9e4", medio: "❤️❤️❤️",
-  ayuda: "Usa las flechas ⬅️⬆️⬇️➡️ (o desliza el dedo) para saltar 🐸<br>Esquiva los autos y cruza el río. ¡Llena las 5 hojitas!<br><b>Cada vez que la ranita cae pierdes 25 puntos</b>",
-  CASTIGO: 25, BARRA: 66,
+  ayuda: "<b>Toca la pantalla</b> para saltar hacia adelante 🐸<br>Desliza a los lados o hacia atrás para esquivar (también hay flechas abajo)<br>Esquiva los autos y cruza el río. ¡Llena las 5 hojitas!<br><b>Cada vez que la ranita cae pierdes 25 puntos</b>",
+  CASTIGO: 25, BARRA: 72,
   menu() {
     const actual = S.leer("rana-mapa", "ciudad");
     ovMostrar("🐸 Ranita Cruza", this.ayuda + "<br><br><b>Elige tu mapa</b>",
@@ -1805,7 +1805,8 @@ JUEGOS.push({
     const bar = document.createElement("div"); bar.className = "tbar"; this.bar = bar;
     [["◀", -1, 0], ["▲", 0, -1], ["▼", 0, 1], ["▶", 1, 0]].forEach(([txt, dc, df]) => {
       const b = document.createElement("button"); b.textContent = txt; b.setAttribute("aria-label", txt);
-      if (txt === "▲") b.style.flex = "1.5";
+      b.style.height = "58px"; b.style.fontSize = "1.7rem";
+      if (txt === "▲") { b.style.flex = "1.6"; b.style.background = "#e4002b"; b.style.color = "#fff"; }
       b.addEventListener("pointerdown", e => { e.preventDefault(); e.stopPropagation(); if (E.corriendo && !E.pausa) this.mover(dc, df); });
       bar.appendChild(b);
     });
@@ -1839,7 +1840,7 @@ JUEGOS.push({
     if (nx < this.cw * .3 || nx > E.W - this.cw * .3) return;
     this.dir = df < 0 ? 0 : df > 0 ? Math.PI : dc < 0 ? Math.PI / 2 : -Math.PI / 2;
     this.de = { x: this.vx, f: this.vy };
-    this.f = nf; this.x = nx; this.salto = .16; api.tono(520 + (this.FIL - nf) * 25, .04, "square", .03);
+    this.f = nf; this.x = nx; this.salto = .16; api.vibrar(8); api.tono(520 + (this.FIL - nf) * 25, .04, "square", .03);
     if (nf < this.mejor) { this.mejor = nf; api.sumar(10); }
     if (nf === 0) this.llegar();
   },
@@ -1865,7 +1866,14 @@ JUEGOS.push({
     api.sacudir(como === "auto" ? 11 : 6); api.tono(como === "agua" ? 220 : 150, .3, "sawtooth"); api.vibrar(70);
   },
   // un deslizamiento = un solo salto (aunque el dedo siga moviéndose)
-  tocar(x, y, tipo) { if (tipo === "abajo") this.usado = false; },
+  // toque corto en cualquier parte = salto hacia adelante (como Crossy Road)
+  tocar(x, y, tipo) {
+    if (tipo === "abajo") { this.usado = false; this.toque = { x, y, t: performance.now() }; return; }
+    if (tipo === "arriba" && this.toque && !this.usado) {
+      const q = this.toque; this.toque = null;
+      if (Math.hypot(x - q.x, y - q.y) < 16 && performance.now() - q.t < 350) this.mover(0, -1);
+    }
+  },
   deslizar(d) {
     if (this.usado) return; this.usado = true;
     ({ arriba: () => this.mover(0, -1), abajo: () => this.mover(0, 1), izq: () => this.mover(-1, 0), der: () => this.mover(1, 0) })[d]();
