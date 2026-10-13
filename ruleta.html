@@ -137,7 +137,7 @@ const PREMIOS = [
   { e: "🍔", p: "Sushi burger",        d: "La pides a domicilio y la pago yo",            c: "#ffc8dd" },
   { e: "🍬", p: "Recarga del cajón",   d: "Hazme la lista de dulces y te los mando",      c: "#ffe5a3" },
   { e: "🎁", p: "Regalo sorpresa",     d: "Yo elijo, tú solo esperas que llegue",         c: "#bde0fe" },
-  { e: "🛒", p: "Pide lo que quieras", d: "Lo que se te antoje, hasta $20.000",           c: "#e0c3fc" },
+  { e: "🛒", p: "Pide lo que quieras", d: "Lo que se te antoje, hasta $10.000",           c: "#e0c3fc" },
   { e: "🍟", p: "Antojo salado",       d: "Papas, completos, lo que sea, por delivery",   c: "#caffbf" },
   { e: "🍰", p: "Postre a tu casa",    d: "Elige el que quieras y te llega",              c: "#ffd6a5" },
   { e: "🧋", p: "Algo rico para tomar", d: "Un té especial, un café helado, lo que sea",  c: "#a0e7e5" },
@@ -147,7 +147,7 @@ const PREMIOS = [
   { e: "📚", p: "Un libro o cuaderno", d: "El que tú elijas, hasta $20.000",              c: "#bde0fe", fuera: true },   // ya no sale en la ruleta (se deja para cupones viejos)
   { e: "⭐", p: "Doble antojo",        d: "Dos cositas en vez de una. Te sacaste la buena", c: "#ffe5a3" },
 ];
-const TOPE = "Hasta $20.000";
+const TOPE = "Hasta $10.000";
 const DIAS_VENCE = 5;
 
 const RUEDA = PREMIOS.map((p, i) => p.fuera ? -1 : i).filter(i => i >= 0);   // premios que sí están en la ruleta
