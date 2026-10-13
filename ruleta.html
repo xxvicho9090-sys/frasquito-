@@ -146,11 +146,25 @@ const PREMIOS = [
   { e: "🧸", p: "Algo calentito",      d: "Calcetines, peluche, algo suave y rico",       c: "#e0c3fc" },
   { e: "📚", p: "Un libro o cuaderno", d: "El que tú elijas, hasta $20.000",              c: "#bde0fe", fuera: true },   // ya no sale en la ruleta (se deja para cupones viejos)
   { e: "⭐", p: "Doble antojo",        d: "Dos cositas en vez de una. Te sacaste la buena", c: "#ffe5a3" },
+  // ── cosas malas (también salen 😈) ──
+  { e: "😝", p: "Nada de nada",        d: "Esta vez no tocó… suerte la próxima semana",   c: "#dcd6e6", malo: "nada" },
+  { e: "💸", p: "Pierdes 300 puntos",  d: "Se te descuentan de los juegos",               c: "#cfc6df", malo: "puntos" },
+  { e: "🎤", p: "Reto: audio cantando", d: "Me debes un audio cantando una canción entera", c: "#dcd6e6", malo: "reto" },
+  { e: "🎨", p: "Reto: me debes un dibujo", d: "Dibújame algo bonito y me lo mandas",     c: "#cfc6df", malo: "reto" },
+  { e: "🔄", p: "Gira el otro",        d: "Esta vez tú me regalas algo a mí 😂",          c: "#dcd6e6", malo: "reto" },
+  { e: "✂️", p: "Cupón a la mitad",    d: "Lo que quieras, pero solo hasta $5.000",       c: "#cfc6df" },
 ];
 const TOPE = "Hasta $10.000";
 const DIAS_VENCE = 5;
 
-const RUEDA = PREMIOS.map((p, i) => p.fuera ? -1 : i).filter(i => i >= 0);   // premios que sí están en la ruleta
+// premios que sí están en la ruleta, intercalando buenos y malos
+const RUEDA = (() => {
+  const vivos = PREMIOS.map((p, i) => p.fuera ? -1 : i).filter(i => i >= 0);
+  const malos = vivos.filter(i => PREMIOS[i].malo || PREMIOS[i].e === "✂️"), buenos = vivos.filter(i => !malos.includes(i)), r = [];
+  const paso = buenos.length / malos.length;
+  buenos.forEach((b, k) => { r.push(b); if (malos.length && Math.floor((k + 1) / paso) > Math.floor(k / paso)) r.push(malos.shift()); });
+  return r.concat(malos);
+})();
 const N = RUEDA.length, ANG = 360 / N;
 function leer(k, def) { try { const v = localStorage.getItem(k); return v === null ? def : JSON.parse(v); } catch { return def; } }
 function escribir(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} }
@@ -318,6 +332,9 @@ function girar() {
 
 function ganar(i) {
   const pr = PREMIOS[i];
+  const carta = document.getElementById("cupon"), tit = carta.querySelector(".t"), nota = carta.querySelector("small");
+  if (pr.malo) return perder(pr, carta, tit, nota);
+  tit.textContent = "CUPÓN VÁLIDO"; nota.style.display = ""; nota.textContent = "📸 Sácale captura y mándamela para cobrarlo";
   const codigo = "CUP-" + Math.random().toString(36).slice(2, 7).toUpperCase();
   const vence = Date.now() + DIAS_VENCE * DIA;
   cupones.push({ i, codigo, fecha: Date.now(), vence, v: 2 });
@@ -334,6 +351,29 @@ function ganar(i) {
   fetch("https://ntfy.sh/" + CANAL, {
     method: "POST", body: `🎡 Le salió: ${pr.e} ${pr.p} (${codigo})\nVence el ${fmt(vence)}`,
     headers: { "Title": "Gano un cupon", "Tags": "gift" }
+  }).catch(() => {});
+}
+
+function perder(pr, carta, tit, nota) {
+  let extra = "";
+  if (pr.malo === "puntos") {
+    const antes = leer("juego-puntos", 0); escribir("juego-puntos", Math.max(0, antes - 300));
+    extra = ` (tenía ${antes}, quedó en ${Math.max(0, antes - 300)})`;
+  }
+  tit.textContent = pr.malo === "reto" ? "😈 RETO" : "😬 MALA SUERTE";
+  document.getElementById("cE").textContent = pr.e;
+  document.getElementById("cP").textContent = pr.p;
+  document.getElementById("cD").textContent = pr.d;
+  document.getElementById("cC").textContent = "";
+  document.getElementById("cV").textContent = pr.malo === "reto" ? `⏳ Tienes ${DIAS_VENCE} días para cumplirlo` : "La próxima semana puedes volver a girar";
+  nota.style.display = pr.malo === "reto" ? "" : "none"; nota.textContent = "📸 Mándame captura cuando lo cumplas";
+  carta.style.display = "block";
+  girando = false;
+  actualizarEstado();
+  llover([pr.e, "💨", "😝"]);
+  fetch("https://ntfy.sh/" + CANAL, {
+    method: "POST", body: `🎡 Le salió algo malo: ${pr.e} ${pr.p}${extra}`,
+    headers: { "Title": pr.malo === "reto" ? "Le toco un reto" : "Mala suerte en la ruleta", "Tags": "game_die" }
   }).catch(() => {});
 }
 
