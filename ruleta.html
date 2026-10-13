@@ -144,13 +144,14 @@ const PREMIOS = [
   { e: "🌸", p: "Flores a tu puerta",  d: "Sin motivo, solo porque sí",                   c: "#ffc8dd" },
   { e: "🧴", p: "Algo para consentirte", d: "Skincare, esmalte, lo que te guste",         c: "#fbc4ab" },
   { e: "🧸", p: "Algo calentito",      d: "Calcetines, peluche, algo suave y rico",       c: "#e0c3fc" },
-  { e: "📚", p: "Un libro o cuaderno", d: "El que tú elijas, hasta $20.000",              c: "#bde0fe" },
+  { e: "📚", p: "Un libro o cuaderno", d: "El que tú elijas, hasta $20.000",              c: "#bde0fe", fuera: true },   // ya no sale en la ruleta (se deja para cupones viejos)
   { e: "⭐", p: "Doble antojo",        d: "Dos cositas en vez de una. Te sacaste la buena", c: "#ffe5a3" },
 ];
 const TOPE = "Hasta $20.000";
 const DIAS_VENCE = 5;
 
-const N = PREMIOS.length, ANG = 360 / N;
+const RUEDA = PREMIOS.map((p, i) => p.fuera ? -1 : i).filter(i => i >= 0);   // premios que sí están en la ruleta
+const N = RUEDA.length, ANG = 360 / N;
 function leer(k, def) { try { const v = localStorage.getItem(k); return v === null ? def : JSON.parse(v); } catch { return def; } }
 function escribir(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} }
 let cupones = leer("ruleta-cupones", []);   // [{ i, codigo, fecha, vence }]
@@ -162,7 +163,8 @@ function vigente(c) { return Date.now() < (c.vence || (c.fecha + DIAS_VENCE * DI
 (function dibujar() {
   const svg = document.getElementById("wheel"), R = 150;
   let html = `<circle r="${R + 6}" fill="#fff"/>`;
-  PREMIOS.forEach((pr, i) => {
+  RUEDA.forEach((ip, i) => {
+    const pr = PREMIOS[ip];
     const a0 = (i * ANG - 90) * Math.PI / 180, a1 = ((i + 1) * ANG - 90) * Math.PI / 180;
     const x0 = R * Math.cos(a0), y0 = R * Math.sin(a0), x1 = R * Math.cos(a1), y1 = R * Math.sin(a1);
     const mid = i * ANG + ANG / 2;
@@ -305,9 +307,9 @@ function girar() {
   escribir("ultimo-giro", Date.now());
   document.getElementById("hub").disabled = true;
   document.getElementById("cupon").style.display = "none";
-  const i = Math.floor(Math.random() * N);
-  // el puntero está arriba: llevar el centro del premio i a 0°
-  const destino = 360 - (i * ANG + ANG / 2) + (Math.random() - .5) * ANG * .6;
+  const k = Math.floor(Math.random() * N), i = RUEDA[k];
+  // el puntero está arriba: llevar el centro del premio k a 0°
+  const destino = 360 - (k * ANG + ANG / 2) + (Math.random() - .5) * ANG * .6;
   rot += 360 * 6 + ((destino - rot % 360) + 360) % 360;
   document.getElementById("wheel").style.transform = `rotate(${rot}deg)`;
   document.getElementById("hint").textContent = "Girando... 🎡";
