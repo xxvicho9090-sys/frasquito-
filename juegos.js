@@ -566,7 +566,7 @@ JUEGOS.push({
     this.cols = Math.max(5, Math.floor(E.W / this.cel)); this.filas = Math.max(5, Math.floor(alto / this.cel));
     this.ox = (E.W - this.cols * this.cel) / 2; this.oy = 8;
     this.s = [{ x: 4, y: Math.floor(this.filas / 2) }]; this.d = { x: 1, y: 0 }; this.cola = [];
-    this.acum = 0; this.vel = .14; this.crecer = 2; this.poner();
+    this.acum = 0; this.vel = .19; this.crecer = 2; this.poner();
     this.tecla = e => {
       const k = { ArrowUp: "arriba", ArrowDown: "abajo", ArrowLeft: "izq", ArrowRight: "der", w: "arriba", s: "abajo", a: "izq", d: "der" }[e.key];
       if (k) { e.preventDefault(); this.deslizar(k); }
@@ -621,7 +621,7 @@ JUEGOS.push({
     if (cab.x === this.fruta.x && cab.y === this.fruta.y) {
       api.sumar(12, this.ox + cab.x * this.cel, this.oy + cab.y * this.cel);
       api.chispas(this.ox + cab.x * this.cel + this.cel / 2, this.oy + cab.y * this.cel + this.cel / 2, "#8ed9a4", 10);
-      api.tono(680, .07); this.crecer += 2; this.vel = Math.max(.05, this.vel - .005); this.poner();
+      api.tono(680, .07); this.crecer += 2; this.vel = Math.max(.085, this.vel - .004); this.poner();
     }
     if (this.crecer > 0) this.crecer--; else this.s.pop();
     if (this.lleno) { api.sumar(100); return api.fin(); }
