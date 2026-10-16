@@ -1,6 +1,6 @@
 /* App instalable: instalación, sin internet y actualización automática */
 (function () {
-  const PAGINAS = ["index.html", "juegos.html", "juegos.js", "ruleta.html", "comida.html", "aburrida.html", "kawaii.css", "kawaii.js"];
+  const PAGINAS = ["index.html", "juegos.html", "juegos.js", "ruleta.html", "comida.html", "aburrida.html", "termometro.html", "manifest.webmanifest", "kawaii.css", "kawaii.js"];
   const leer = (k, d) => { try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch { return d; } };
   const esc = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} };
   const esIndex = /\/(index\.html)?$/.test(location.pathname);
@@ -31,7 +31,7 @@
   }
 
   /* ───── actualización automática ───── */
-  let recargando = false, pendiente = null, esperando = null;
+  let ultima = 0, recargando = false, pendiente = null, esperando = null;
   function ocupada() {
     try {
       if (typeof E !== "undefined" && E && E.corriendo) return true;          // jugando
@@ -42,12 +42,13 @@
   }
   async function huella() {
     let h = 0, n = 0;
-    const textos = await Promise.all(PAGINAS.map(p => fetch(p, { cache: "no-store" }).then(r => r.ok ? r.text() : "").catch(() => "")));
+    const textos = await Promise.all(PAGINAS.map(p => fetch(p, { cache: "no-store" }).then(r => { if (!r.ok) throw 0; return r.text(); })));
     textos.forEach(t => { n += t.length; for (let i = 0; i < t.length; i++) h = (h * 31 + t.charCodeAt(i)) | 0; });
     return h + ":" + n;
   }
   async function recargarYa() {
     if (recargando) return;
+    try { if (Date.now() - (+sessionStorage.getItem("pwa-t") || 0) < 60000) return; sessionStorage.setItem("pwa-t", Date.now()); } catch {}  // anti-bucle
     recargando = true;
     try { esc("pwa-huella", pendiente && pendiente !== "sw" ? pendiente : await huella()); } catch {}
     esc("pwa-recien", true);
@@ -65,6 +66,7 @@
   }
   async function buscar() {
     if (!navigator.onLine || recargando) return;
+    if (Date.now() - ultima < 120000) return; ultima = Date.now();
     try {
       const nueva = await huella(), guardada = leer("pwa-huella", null);
       if (guardada === null) esc("pwa-huella", nueva);

@@ -1,7 +1,7 @@
 /* Service worker: deja el sitio funcionando sin internet y siempre trae lo último */
-const CACHE = "frasco-v3";
+const CACHE = "frasco-v4";
 const ARCHIVOS = [
-  "./", "./index.html", "./juegos.html", "./juegos.js", "./three.min.js", "./ruleta.html", "./comida.html", "./aburrida.html",
+  "./", "./index.html", "./juegos.html", "./juegos.js", "./three.min.js", "./ruleta.html", "./comida.html", "./aburrida.html", "./termometro.html", "./apple-touch-icon.png",
   "./pwa.js", "./kawaii.css", "./kawaii.js", "./manifest.webmanifest", "./icono-192.png", "./icono-512.png", "./icono-maskable.png",
 ];
 
@@ -31,7 +31,7 @@ self.addEventListener("fetch", e => {
         if (res && res.ok) { const copia = res.clone(); caches.open(CACHE).then(c => c.put(req, copia)).catch(() => {}); }
         return res;
       })
-      .catch(() => caches.match(req, { ignoreSearch: true }).then(r => r || caches.match("./index.html")))
+      .catch(() => caches.match(req, { ignoreSearch: true }).then(r => r || (req.mode === "navigate" ? caches.match("./index.html") : Response.error())))
   );
 });
 

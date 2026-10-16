@@ -47,10 +47,12 @@
   #msg .emoji { font-size:3.5rem; margin-bottom:10px; }
   #msg p { font-size:1.2rem; line-height:1.5; margin-bottom:22px; }
   .row { display:flex; gap:10px; justify-content:center; flex-wrap:wrap; }
-  .small { border:none; border-radius:14px; padding:10px 16px; cursor:pointer; font-weight:600; background:#3a2a40; color:#fff; }
+  .small { display:inline-flex; align-items:center; justify-content:center; min-height:44px; border:none; border-radius:14px; padding:10px 16px; cursor:pointer; font-weight:600; background:#3a2a40; color:#fff; }
   .small.alt { background:#fff; color:#3a2a40; }
   @keyframes pop { from { transform:scale(.8); opacity:0; } to { transform:scale(1); opacity:1; } }
   .float { position:fixed; bottom:-40px; font-size:1.6rem; animation:up linear forwards; z-index:1; pointer-events:none; }
+  button:focus-visible,a:focus-visible { outline:3px solid #3a2a40; outline-offset:3px; }
+  @media (prefers-reduced-motion:reduce){ *{animation:none!important;transition:none!important} .float{display:none} }
   @keyframes up { to { transform:translateY(-115vh) rotate(25deg); opacity:0; } }
 </style>
 <link rel="stylesheet" href="kawaii.css">
@@ -66,9 +68,9 @@
       <button class="mood b-gris"  onclick="elegir('gris')"><span>🌧️</span> Día gris</button>
       <button class="mood b-dificil" onclick="elegir('dificil')"><span>🫂</span> Día muy difícil</button>
     </div>
-    <p style="margin-top:18px"><a href="index.html" style="color:#3a2a40;opacity:.7;font-size:.9rem">🫙 Ir al frasco de mensajes</a></p>
+    <p style="margin-top:18px"><a href="index.html" style="color:#3a2a40;opacity:.85;font-size:.95rem;display:inline-block;padding:12px 8px">🫙 Ir al frasco de mensajes</a></p>
   </div>
-  <div id="msg">
+  <div id="msg" aria-live="polite">
     <div class="emoji" id="emoji"></div>
     <p id="texto"></p>
     <div class="row">
@@ -176,6 +178,7 @@ function volver() {
   document.getElementById("pick").style.display = "block";
 }
 function llover(emojis) {
+  if (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) return;
   for (let k = 0; k < 18; k++) {
     const e = document.createElement("div");
     e.className = "float";

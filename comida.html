@@ -58,14 +58,16 @@
   @keyframes pop { from { transform:scale(.9); opacity:0; } to { transform:none; opacity:1; } }
 
   .row { display:flex; gap:10px; justify-content:center; flex-wrap:wrap; margin-top:16px; }
-  .btn { border:none; border-radius:14px; padding:12px 18px; font-family:inherit; font-weight:800; font-size:.92rem;
+  .btn { min-height:44px; border:none; border-radius:14px; padding:12px 18px; font-family:inherit; font-weight:800; font-size:.92rem;
          cursor:pointer; background:var(--accent); color:#fff; box-shadow:0 6px 16px #e8798f55; transition:transform .15s; }
   .btn.alt { background:#fff; color:var(--ink); box-shadow:0 4px 14px #0000000f; }
   .btn:hover { transform:translateY(-2px); }
   .listo { display:none; margin-top:16px; font-family:"Caveat", cursive; font-size:1.6rem; color:var(--accent); }
   .link { display:inline-block; margin-top:20px; color:var(--soft); font-size:.85rem; text-decoration:none;
-          font-weight:600; background:#ffffffaa; padding:8px 14px; border-radius:99px; }
+          font-weight:600; background:#ffffffaa; padding:12px 16px; min-height:44px; border-radius:99px; }
   .float { position:fixed; bottom:-40px; font-size:1.5rem; animation:up linear forwards; z-index:1; pointer-events:none; }
+  button:focus-visible,a:focus-visible { outline:3px solid #b3002a; outline-offset:3px; }
+  @media (prefers-reduced-motion:reduce){ *{animation:none!important;transition:none!important} .float{display:none} }
   @keyframes up { to { transform:translateY(-115vh) rotate(25deg); opacity:0; } }
 </style>
 <link rel="stylesheet" href="kawaii.css">
@@ -95,7 +97,7 @@
       <button class="btn alt" onclick="comi()">Ya, me sirve 👍</button>
       <button class="btn alt" onclick="volver()">Volver</button>
     </div>
-    <p class="listo" id="listo"></p>
+    <p class="listo" id="listo" aria-live="polite"></p>
   </div>
 
   <a class="link" href="index.html">🫙 Volver al frasco</a>
@@ -216,6 +218,7 @@ function volver() {
   document.getElementById("sub").style.display = "block";
 }
 function llover(emojis) {
+  if (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) return;
   for (let k = 0; k < 14; k++) {
     const e = document.createElement("div");
     e.className = "float";

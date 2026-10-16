@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Frasco de Mensajes</title>
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#e4002b">
@@ -19,7 +19,7 @@
   * { box-sizing:border-box; margin:0; padding:0; }
   body {
     min-height:100vh; display:block;
-    font-family:"Nunito", system-ui, sans-serif; color:var(--ink); padding:clamp(16px,6vh,56px) 16px;
+    font-family:"Nunito", system-ui, sans-serif; color:var(--ink); padding:max(clamp(16px,6vh,56px),env(safe-area-inset-top)) max(16px,env(safe-area-inset-right)) max(24px,env(safe-area-inset-bottom)) max(16px,env(safe-area-inset-left));
     background:
       radial-gradient(circle at 20% 15%, #ffd9e4 0, transparent 40%),
       radial-gradient(circle at 85% 80%, #d9e8ff 0, transparent 45%),
@@ -145,6 +145,16 @@
   .spark { position:fixed; width:6px; height:6px; border-radius:50%; background:#ffe08a; pointer-events:none;
            animation:spark 3s ease-in-out infinite; opacity:.7; z-index:0; }
   @keyframes spark { 50% { opacity:0; transform:scale(.3); } }
+  .cambiar { min-height:44px; padding:10px 14px; }
+  .link { min-height:44px; line-height:28px; margin-inline:3px; }
+  .heart { min-height:44px; }
+  .jar-wrap:focus-visible, .btn:focus-visible, .mood:focus-visible, .atajo:focus-visible, .link:focus-visible, .cambiar:focus-visible, .heart:focus-visible { outline:3px solid #e4002b; outline-offset:3px; }
+  .jar-wrap { outline-offset:6px; border-radius:24px; }
+  .note p { overflow-wrap:anywhere; }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration:.01ms !important; animation-iteration-count:1 !important; transition-duration:.01ms !important; }
+    .float, .spark, .glow { display:none !important; }
+  }
 </style>
 <link rel="stylesheet" href="kawaii.css">
 </head>
@@ -164,10 +174,10 @@
     <a class="atajo" href="juegos.html"><span class="atajo-em">🎮</span><span class="atajo-tx"><b>Sala de juegos</b><small>18 juegos para ganar fichas</small></span><span class="atajo-fl">›</span></a>
   </div>
   <div id="paso2" style="display:none">
-  <p class="gracias" id="gracias"></p>
+  <p class="gracias" id="gracias" role="status" aria-live="polite"></p>
   <div class="progress"><span id="cnt">0 de 0</span><div class="bar"><div id="bar"></div></div></div>
 
-  <div class="jar-wrap" id="jarWrap" onclick="abrir()" role="button" aria-label="Abrir el frasco">
+  <div class="jar-wrap" id="jarWrap" onclick="abrir()" role="button" tabindex="0" aria-label="Abrir el frasco" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();abrir();}">
     <div class="glow"></div>
     <svg viewBox="0 0 230 300" aria-hidden="true">
       <defs>
@@ -209,7 +219,7 @@
   <div class="note-wrap" id="noteWrap">
     <div class="note">
       <div class="num" id="num"></div>
-      <p id="texto"></p>
+      <p id="texto" aria-live="polite"></p>
       <div class="firma">— yo ✨</div>
       <a class="btn esp" id="espBtn" style="display:none" href="#"></a>
     </div>
@@ -218,7 +228,7 @@
       <br><button class="btn" id="otroBtn" onclick="sacarOtro()">Sacar otro papelito</button>
     </div>
   </div>
-  <p class="next" id="next"></p>
+  <p class="next" id="next" aria-live="off"></p>
   <button class="cambiar" id="cambiar" onclick="cambiarAnimo()">Cambiar cómo me siento</button>
   <br><a class="link" href="juegos.html">🎮 Sala de juegos</a>
   <a class="link" href="aburrida.html">🎲 ¿Aburrida?</a>
@@ -543,6 +553,8 @@ for (let k = 0; k < 14; k++) {
 llenar();
 if (deHoy && deHoy.fecha === HOY) document.getElementById("hint").innerHTML = "Ya sacaste el de hoy. Tócalo para <b>volver a leerlo</b>";
 const listo = cargarPlanilla().then(llenar);
+// si ya contó cómo está hoy, saltamos directo al frasco
+if (moodDeHoy()) mostrarPaso2();
 
 let abierto = false, actual = null;
 async function abrir() {
@@ -559,6 +571,7 @@ async function abrir() {
     escribir("frasco-vistos2", vistos); escribir("frasco-hoy2", deHoy);
   }
   document.getElementById("lid").classList.add("open");
+  document.getElementById("jarWrap").setAttribute("aria-busy","true");
   setTimeout(() => {
     document.getElementById("jarWrap").style.display = "none";
     document.getElementById("hint").style.display = "none";
@@ -619,7 +632,8 @@ function cuentaRegresiva() {
   const el = document.getElementById("next");
   const tick = () => {
     const man = new Date(); man.setHours(24, 0, 0, 0);
-    const s = Math.floor((man - new Date()) / 1000);
+    const s = Math.max(0, Math.floor((man - new Date()) / 1000));
+    if (s === 0) { el.textContent = "Ya hay un papelito nuevo: recarga la página 💌"; return; }
     el.textContent = `Próximo papelito en ${Math.floor(s / 3600)}h ${Math.floor(s % 3600 / 60)}min ⏳`;
   };
   tick(); setInterval(tick, 30000);

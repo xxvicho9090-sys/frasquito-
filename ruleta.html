@@ -83,6 +83,8 @@
   .mis li.anulado .pr { text-decoration:line-through; }
   .link { display:inline-block; margin-top:18px; color:var(--soft); font-size:.85rem; text-decoration:none; font-weight:600;
           background:#ffffffaa; padding:8px 14px; border-radius:99px; }
+  .hub:focus-visible, .elegir .op button:focus-visible { outline:3px solid var(--ink); outline-offset:2px; }
+  @media (prefers-reduced-motion:reduce) { #wheel { transition-duration:1.2s; } .float { display:none; } }
   .float { position:fixed; bottom:-40px; font-size:1.5rem; animation:up linear forwards; z-index:1; pointer-events:none; }
   @keyframes up { to { transform:translateY(-115vh) rotate(30deg); opacity:0; } }
 </style>
@@ -101,12 +103,12 @@
 
   <div class="wheel-wrap">
     <div class="pointer"></div>
-    <svg id="wheel" viewBox="-160 -160 320 320" aria-hidden="true"></svg>
+    <svg id="wheel" viewBox="-160 -160 320 320" role="img" aria-label="Ruleta de cupones"></svg>
     <button class="hub" id="hub" onclick="girar()">GIRAR</button>
   </div>
-  <p class="hint" id="hint"></p>
+  <p class="hint" id="hint" aria-live="polite"></p>
 
-  <div class="cupon" id="cupon">
+  <div class="cupon" id="cupon" aria-live="polite">
     <div class="t">CUPÓN VÁLIDO</div>
     <div class="e" id="cE"></div>
     <div class="p" id="cP"></div>
@@ -144,7 +146,7 @@ const PREMIOS = [
   { e: "🌸", p: "Flores a tu puerta",  d: "Sin motivo, solo porque sí",                   c: "#ffc8dd", fuera: true },   // ya no sale en la ruleta
   { e: "🧴", p: "Algo para consentirte", d: "Skincare, esmalte, lo que te guste",         c: "#fbc4ab" },
   { e: "🧸", p: "Algo calentito",      d: "Calcetines, peluche, algo suave y rico",       c: "#e0c3fc" },
-  { e: "📚", p: "Un libro o cuaderno", d: "El que tú elijas, hasta $20.000",              c: "#bde0fe", fuera: true },   // ya no sale en la ruleta (se deja para cupones viejos)
+  { e: "📚", p: "Un libro o cuaderno", d: "El que tú elijas, hasta $10.000",              c: "#bde0fe", fuera: true },   // ya no sale en la ruleta (se deja para cupones viejos)
   { e: "⭐", p: "Doble antojo",        d: "Dos cositas en vez de una. Te sacaste la buena", c: "#ffe5a3" },
   // ── cosas malas (también salen 😈) ──
   { e: "😝", p: "Nada de nada",        d: "Esta vez no tocó… suerte la próxima semana",   c: "#dcd6e6", malo: "nada" },
@@ -183,7 +185,7 @@ function vigente(c) { return Date.now() < (c.vence || (c.fecha + DIAS_VENCE * DI
     const x0 = R * Math.cos(a0), y0 = R * Math.sin(a0), x1 = R * Math.cos(a1), y1 = R * Math.sin(a1);
     const mid = i * ANG + ANG / 2;
     html += `<path d="M0 0 L${x0} ${y0} A${R} ${R} 0 0 1 ${x1} ${y1} Z" fill="${pr.c}" stroke="#fff" stroke-width="2"/>`;
-    html += `<text transform="rotate(${mid}) translate(0 -112)" text-anchor="middle" dominant-baseline="middle" font-size="26">${pr.e}</text>`;
+    html += `<text transform="rotate(${mid}) translate(0 -112)" text-anchor="middle" dominant-baseline="middle" font-size="26" fill="#3b2f4a">${pr.e}</text>`;
   });
   for (let k = 0; k < N; k++) {
     const a = (k * ANG - 90) * Math.PI / 180;
@@ -312,18 +314,25 @@ function actualizarEstado() {
 }
 renovarUnico();
 actualizarEstado();
+// giro interrumpido por una recarga: entregar el premio ya sorteado
+{ const pend = leer("giro-pendiente", null);
+  if (pend && PREMIOS[pend.i]) { girando = true; document.getElementById("hub").disabled = true; setTimeout(() => ganar(pend.i), 600); }
+  else if (pend) { try { localStorage.removeItem("giro-pendiente"); } catch {} } }
 
 let rot = 0, girando = false;
 function girar() {
   if (girando || fichasDisponibles() < 1 || msParaGirar() > 0) return;
+  if (leer("giro-pendiente", null)) return;
   girando = true;
-  escribir("fichas-usadas", leer("fichas-usadas", 0) + 1);
-  escribir("ultimo-giro", Date.now());
   document.getElementById("hub").disabled = true;
   document.getElementById("cupon").style.display = "none";
   const k = Math.floor(Math.random() * N), i = RUEDA[k];
   // el puntero está arriba: llevar el centro del premio k a 0°
   const destino = 360 - (k * ANG + ANG / 2) + (Math.random() - .5) * ANG * .6;
+  // se guarda el premio ANTES de girar: si recarga a mitad del giro, se entrega igual y sin duplicar
+  escribir("fichas-usadas", leer("fichas-usadas", 0) + 1);
+  escribir("ultimo-giro", Date.now());
+  escribir("giro-pendiente", { i, codigo: "CUP-" + Math.random().toString(36).slice(2, 7).toUpperCase(), t: Date.now() });
   rot += 360 * 6 + ((destino - rot % 360) + 360) % 360;
   document.getElementById("wheel").style.transform = `rotate(${rot}deg)`;
   document.getElementById("hint").textContent = "Girando... 🎡";
@@ -331,11 +340,14 @@ function girar() {
 }
 
 function ganar(i) {
+  const pend = leer("giro-pendiente", null);
+  if (!pend || pend.i !== i) { girando = false; actualizarEstado(); return; }   // ya entregado (evita duplicados)
+  try { localStorage.removeItem("giro-pendiente"); } catch {}
   const pr = PREMIOS[i];
   const carta = document.getElementById("cupon"), tit = carta.querySelector(".t"), nota = carta.querySelector("small");
   if (pr.malo) return perder(pr, carta, tit, nota);
   tit.textContent = "CUPÓN VÁLIDO"; nota.style.display = ""; nota.textContent = "📸 Sácale captura y mándamela para cobrarlo";
-  const codigo = "CUP-" + Math.random().toString(36).slice(2, 7).toUpperCase();
+  const codigo = pend.codigo;
   const vence = Date.now() + DIAS_VENCE * DIA;
   cupones.push({ i, codigo, fecha: Date.now(), vence, v: 2 });
   escribir("ruleta-cupones", cupones);
@@ -357,8 +369,9 @@ function ganar(i) {
 function perder(pr, carta, tit, nota) {
   let extra = "";
   if (pr.malo === "puntos") {
-    const antes = leer("juego-puntos", 0); escribir("juego-puntos", Math.max(0, antes - 300));
-    extra = ` (tenía ${antes}, quedó en ${Math.max(0, antes - 300)})`;
+    const antes = Math.max(0, Number(leer("juego-puntos", 0)) || 0), quedo = Math.max(0, antes - 300);
+    escribir("juego-puntos", quedo);
+    extra = ` (tenía ${antes}, quedó en ${quedo})`;
   }
   tit.textContent = pr.malo === "reto" ? "😈 RETO" : "😬 MALA SUERTE";
   document.getElementById("cE").textContent = pr.e;

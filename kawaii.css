@@ -66,5 +66,6 @@ h2 { font-family:"Fredoka","Caveat",cursive; }
 .kt-deco { position:fixed; inset:0; pointer-events:none; z-index:-1; overflow:hidden; }
 .kt-deco span { position:absolute; top:-40px; opacity:.45; animation:kt-cae linear infinite; will-change:transform; }
 @keyframes kt-cae { 0% { transform:translateY(0) rotate(-10deg); } 50% { transform:translateY(55vh) translateX(18px) rotate(12deg); } 100% { transform:translateY(112vh) translateX(-12px) rotate(-8deg); } }
+.kt-deco.pausa span { animation-play-state:paused; }
 @media (prefers-reduced-motion: reduce) { .kt-deco { display:none; } }
 .spark { background:#ff9db4 !important; }

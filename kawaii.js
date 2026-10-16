@@ -4,7 +4,7 @@
   const em = ["🎀", "💖", "⭐", "🌸", "🎀", "✨", "🍓", "🎀"];
   const cont = document.createElement("div");
   cont.className = "kt-deco"; cont.setAttribute("aria-hidden", "true");
-  for (let i = 0; i < 10; i++) {
+  for (let i = 0; i < (navigator.deviceMemory && navigator.deviceMemory <= 2 ? 5 : 10); i++) {
     const s = document.createElement("span");
     s.textContent = em[i % em.length];
     s.style.left = (4 + Math.random() * 92) + "vw";
@@ -14,4 +14,5 @@
     cont.appendChild(s);
   }
   document.body.appendChild(cont);
+  document.addEventListener("visibilitychange", () => cont.classList.toggle("pausa", document.hidden));
 })();
