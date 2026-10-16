@@ -55,6 +55,7 @@
   @media (prefers-reduced-motion:reduce){ *{animation:none!important;transition:none!important} .float{display:none} }
   @keyframes up { to { transform:translateY(-115vh) rotate(25deg); opacity:0; } }
 </style>
+<link rel="stylesheet" href="fuentes.css">
 <link rel="stylesheet" href="kawaii.css">
 </head>
 <body>
@@ -162,6 +163,12 @@ const AVISOS = {
   dificil: "Hoy tengo un día muy difícil 🫂 escríbele",
 };
 function avisar() {
+  // no repetir el mismo aviso si vuelve a elegir el mismo ánimo en pocas horas (el "muy difícil" siempre avisa)
+  try {
+    const u = JSON.parse(localStorage.getItem("termometro-aviso") || "null");
+    if (actual !== "dificil" && u && u.mood === actual && Date.now() - u.t < 3 * 3600000) return;
+    localStorage.setItem("termometro-aviso", JSON.stringify({ mood: actual, t: Date.now() }));
+  } catch {}
   fetch("https://ntfy.sh/" + CANAL, {
     method: "POST",
     body: "Ella dice: " + AVISOS[actual],

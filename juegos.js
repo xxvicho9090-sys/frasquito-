@@ -104,9 +104,17 @@ function tono(f = 440, dur = .08, tipo = "sine", vol = .05) {
   } catch {}
 }
 const vibrar = ms => { try { navigator.vibrate && navigator.vibrate(ms); } catch {} };
-function luego(fn, ms) { const id = setTimeout(() => { E.timers = E.timers.filter(t => t !== id); fn(); }, ms); E.timers.push(id); return id; }
-function cadaTanto(fn, ms) { const id = setInterval(fn, ms); E.timers.push(id); return id; }
-function limpiarTimers() { E.timers.forEach(id => { clearTimeout(id); clearInterval(id); }); E.timers = []; }
+// los temporizadores de los juegos se congelan durante la pausa: lo que vencía mientras estaba en pausa se ejecuta al reanudar
+E.espera = [];
+function luego(fn, ms) {
+  const id = setTimeout(() => {
+    E.timers = E.timers.filter(t => t !== id);
+    if (E.pausa) E.espera.push(fn); else fn();
+  }, ms);
+  E.timers.push(id); return id;
+}
+function cadaTanto(fn, ms) { const id = setInterval(() => { if (!E.pausa) fn(); }, ms); E.timers.push(id); return id; }
+function limpiarTimers() { E.timers.forEach(id => { clearTimeout(id); clearInterval(id); }); E.timers = []; E.espera = []; }
 
 /* --- partículas --- */
 function chispas(x, y, color = "#e8798f", n = 10, texto = null) {
@@ -203,13 +211,17 @@ addEventListener("pointerup", e => {
 });
 
 /* --- bucle --- */
-function loop(t) {
-  if (!E.corriendo || t === undefined) return;
-  if (loop.token !== E.token) return;          // bucle viejo: se apaga
-  if (E.pausa) { E.ultimo = t; return requestAnimationFrame(loop); }
-  const dt = Math.max(0, Math.min((t - E.ultimo) / 1000, .05)); E.ultimo = t;
-  try { paso(dt); } catch (err) { console.error(err); return terminar(); }
-  if (E.corriendo) requestAnimationFrame(loop);
+// cada bucle lleva su propio número: si empieza otro (reanudar, otra partida) el anterior se apaga solo
+function iniciarBucle() {
+  const tok = ++E.token;
+  const paso1 = t => {
+    if (!E.corriendo || t === undefined || tok !== E.token) return;
+    if (E.pausa) { E.ultimo = t; return; }          // en pausa el bucle se detiene (reanudar lo reinicia)
+    const dt = Math.max(0, Math.min((t - E.ultimo) / 1000, .05)); E.ultimo = t;
+    try { paso(dt); } catch (err) { console.error(err); return terminar(); }
+    if (E.corriendo && tok === E.token) requestAnimationFrame(paso1);
+  };
+  requestAnimationFrame(paso1);
 }
 function paso(dt) {
   if (E.juego.tiempo) {
@@ -242,7 +254,12 @@ function pausar() {
   E.pausa = true; E.puntero.abajo = false; ini = null;
   ovMostrar("Pausa ⏸️", "Volviste a otra app, así que te guardé el juego.", [{ txt: "Seguir jugando", cls: "btn", fn: reanudar }]);
 }
-function reanudar() { ovOcultar(); E.pausa = false; E.ultimo = performance.now(); }
+function reanudar() {
+  ovOcultar(); if (!E.pausa) return;
+  E.pausa = false; E.ultimo = performance.now();
+  iniciarBucle();                                             // un solo bucle vivo
+  const pend = E.espera; E.espera = []; pend.forEach(f => { try { f(); } catch (e) { console.error(e); } });
+}
 
 /* --- iniciar / terminar --- */
 function jugar(id) {
@@ -276,8 +293,7 @@ function arrancar() {
   hud();
   if (!E.juego.tiempo) document.getElementById("hudMedio").textContent = E.juego.medio || "▶";
   E.corriendo = true; E.ultimo = performance.now();
-  loop.token = ++E.token;
-  requestAnimationFrame(loop);
+  iniciarBucle();
 }
 function terminar() {
   if (!E.corriendo) return;
@@ -1475,6 +1491,17 @@ JUEGOS.push({
     this.llenar(5);
     this.sig = this.colorNuevo(); this.cur = this.colorNuevo();
     this.hudf();
+  },
+  // al girar la pantalla se recalcula el tamaño sin perder la partida
+  resize() {
+    const W = E.W, H = E.H;
+    if (this.b) { this.cur = this.b.c; this.b = null; }
+    this.r = W / (2 * this.C + 1); this.dy = this.r * Math.sqrt(3);
+    this.sy = H - this.r * 2.3; this.linea = this.sy - this.r * 3.2;
+    let baja = 0; this.g.forEach((fl, f) => { if (fl.some(v => v >= 0)) baja = f; });
+    this.maxF = Math.max(Math.floor((this.linea - 2 * this.r) / this.dy), baja);     // nunca pierde por girar el celular
+    while (this.g.length < this.maxF + 3) this.g.push(Array(this.C).fill(-1));
+    this.cae = [];
   },
   odd(f) { return (f + this.par) & 1; },
   pos(f, c) { return { x: this.r + (this.odd(f) ? this.r : 0) + c * 2 * this.r, y: this.r + f * this.dy }; },

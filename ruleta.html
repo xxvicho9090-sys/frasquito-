@@ -10,8 +10,8 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Frasquito">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;700&family=Nunito:wght@400;600;800&display=swap" rel="stylesheet">
+<link rel="preload" href="fuentes/nunito-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="fuentes.css">
 <style>
   :root { --ink:#3b2f4a; --soft:#7a6b8a; --accent:#e8798f; }
   * { box-sizing:border-box; margin:0; padding:0; }
@@ -149,12 +149,12 @@ const PREMIOS = [
   { e: "📚", p: "Un libro o cuaderno", d: "El que tú elijas, hasta $10.000",              c: "#bde0fe", fuera: true },   // ya no sale en la ruleta (se deja para cupones viejos)
   { e: "⭐", p: "Doble antojo",        d: "Dos cositas en vez de una. Te sacaste la buena", c: "#ffe5a3" },
   // ── cosas malas (también salen 😈) ──
-  { e: "😝", p: "Nada de nada",        d: "Esta vez no tocó… suerte la próxima semana",   c: "#dcd6e6", malo: "nada" },
-  { e: "💸", p: "Pierdes 300 puntos",  d: "Se te descuentan de los juegos",               c: "#cfc6df", malo: "puntos" },
-  { e: "🎤", p: "Reto: audio cantando", d: "Me debes un audio cantando una canción entera", c: "#dcd6e6", malo: "reto" },
-  { e: "🎨", p: "Reto: me debes un dibujo", d: "Dibújame algo bonito y me lo mandas",     c: "#cfc6df", malo: "reto" },
-  { e: "🔄", p: "Gira el otro",        d: "Esta vez tú me regalas algo a mí 😂",          c: "#dcd6e6", malo: "reto" },
-  { e: "✂️", p: "Cupón a la mitad",    d: "Lo que quieras, pero solo hasta $5.000",       c: "#cfc6df" },
+  { e: "😝", p: "Nada de nada",        d: "Esta vez no tocó… suerte la próxima semana",   c: "#cfc3e6", malo: "nada" },
+  { e: "💸", p: "Pierdes 300 puntos",  d: "Se te descuentan de los juegos",               c: "#bfb0da", malo: "puntos" },
+  { e: "🎤", p: "Reto: audio cantando", d: "Me debes un audio cantando una canción entera", c: "#cfc3e6", malo: "reto" },
+  { e: "🎨", p: "Reto: me debes un dibujo", d: "Dibújame algo bonito y me lo mandas",     c: "#bfb0da", malo: "reto" },
+  { e: "🔄", p: "Gira el otro",        d: "Esta vez tú me regalas algo a mí 😂",          c: "#cfc3e6", malo: "reto" },
+  { e: "✂️", p: "Cupón a la mitad",    d: "Lo que quieras, pero solo hasta $5.000",       c: "#bfb0da" },
 ];
 const TOPE = "Hasta $10.000";
 const DIAS_VENCE = 5;
@@ -170,6 +170,7 @@ const RUEDA = (() => {
 const N = RUEDA.length, ANG = 360 / N;
 function leer(k, def) { try { const v = localStorage.getItem(k); return v === null ? def : JSON.parse(v); } catch { return def; } }
 function escribir(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} }
+let retos = leer("ruleta-retos", []);        // [{ i, fecha, vence, hecho }]
 let cupones = leer("ruleta-cupones", []);   // [{ i, codigo, fecha, vence }]
 const DIA = 86400000;
 function fmt(ms) { return new Date(ms).toLocaleDateString("es-CL", { day: "numeric", month: "long" }); }
@@ -309,9 +310,22 @@ function actualizarEstado() {
     li.querySelector(".cod").textContent = c.codigo;
     lista.appendChild(li);
   });
-  document.getElementById("mis").style.display = cupones.length ? "block" : "none";
+  [...retos].reverse().forEach(r => {
+    const pr = PREMIOS[r.i]; if (!pr) return;
+    const venc = !r.hecho && Date.now() >= r.vence, li = document.createElement("li");
+    if (r.hecho || venc) li.className = "vencido";
+    li.innerHTML = `<span class="em"></span><span><b class="pr"></b><small class="ven"></small></span><span class="cod"></span>`;
+    li.querySelector(".em").textContent = pr.e;
+    li.querySelector(".pr").textContent = "😈 " + pr.p;
+    li.querySelector(".ven").textContent = r.hecho ? "Reto cumplido ✅" : venc ? "El reto venció" : "Reto pendiente · hasta el " + fmt(r.vence);
+    const cod = li.querySelector(".cod");
+    if (!r.hecho && !venc) { const b = document.createElement("button"); b.textContent = "Ya lo hice"; b.className = "link"; b.style.cssText = "border:0;cursor:pointer;font:inherit;padding:6px 10px"; b.onclick = () => { r.hecho = true; escribir("ruleta-retos", retos); actualizarEstado(); }; cod.appendChild(b); }
+    lista.appendChild(li);
+  });
+  document.getElementById("mis").style.display = (cupones.length || retos.length) ? "block" : "none";
   pintarElegir();
 }
+let rot = 0, girando = false;
 renovarUnico();
 actualizarEstado();
 // giro interrumpido por una recarga: entregar el premio ya sorteado
@@ -319,7 +333,6 @@ actualizarEstado();
   if (pend && PREMIOS[pend.i]) { girando = true; document.getElementById("hub").disabled = true; setTimeout(() => ganar(pend.i), 600); }
   else if (pend) { try { localStorage.removeItem("giro-pendiente"); } catch {} } }
 
-let rot = 0, girando = false;
 function girar() {
   if (girando || fichasDisponibles() < 1 || msParaGirar() > 0) return;
   if (leer("giro-pendiente", null)) return;
@@ -345,11 +358,11 @@ function ganar(i) {
   try { localStorage.removeItem("giro-pendiente"); } catch {}
   const pr = PREMIOS[i];
   const carta = document.getElementById("cupon"), tit = carta.querySelector(".t"), nota = carta.querySelector("small");
-  if (pr.malo) return perder(pr, carta, tit, nota);
+  if (pr.malo) return perder(pr, carta, tit, nota, pend);
   tit.textContent = "CUPÓN VÁLIDO"; nota.style.display = ""; nota.textContent = "📸 Sácale captura y mándamela para cobrarlo";
-  const codigo = pend.codigo;
-  const vence = Date.now() + DIAS_VENCE * DIA;
-  cupones.push({ i, codigo, fecha: Date.now(), vence, v: 2 });
+  const codigo = pend.codigo, inicio = Math.min(Date.now(), pend.t || Date.now());
+  const vence = inicio + DIAS_VENCE * DIA;
+  cupones.push({ i, codigo, fecha: inicio, vence, v: 2 });
   escribir("ruleta-cupones", cupones);
   document.getElementById("cE").textContent = pr.e;
   document.getElementById("cP").textContent = pr.p;
@@ -366,13 +379,14 @@ function ganar(i) {
   }).catch(() => {});
 }
 
-function perder(pr, carta, tit, nota) {
+function perder(pr, carta, tit, nota, pend0) {
   let extra = "";
   if (pr.malo === "puntos") {
     const antes = Math.max(0, Number(leer("juego-puntos", 0)) || 0), quedo = Math.max(0, antes - 300);
     escribir("juego-puntos", quedo);
     extra = ` (tenía ${antes}, quedó en ${quedo})`;
   }
+  if (pr.malo === "reto") { const inicio = Math.min(Date.now(), (pend0 && pend0.t) || Date.now()); retos.push({ i: PREMIOS.indexOf(pr), fecha: inicio, vence: inicio + DIAS_VENCE * DIA, hecho: false }); escribir("ruleta-retos", retos); }
   tit.textContent = pr.malo === "reto" ? "😈 RETO" : "😬 MALA SUERTE";
   document.getElementById("cE").textContent = pr.e;
   document.getElementById("cP").textContent = pr.p;
