@@ -339,7 +339,14 @@ function girar() {
   girando = true;
   document.getElementById("hub").disabled = true;
   document.getElementById("cupon").style.display = "none";
-  const k = Math.floor(Math.random() * N), i = RUEDA[k];
+  // ✏️ Giro dirigido: la próxima tirada después de este cambio sale algo malo (una sola vez; cambia el texto para volver a usarlo)
+  const FORZAR_MALO = "2026-10-19";
+  let k = Math.floor(Math.random() * N);
+  if (leer("forzado-malo", "") !== FORZAR_MALO) {
+    const malos = RUEDA.map((ip, q) => PREMIOS[ip].malo ? q : -1).filter(q => q >= 0);
+    if (malos.length) { k = malos[Math.floor(Math.random() * malos.length)]; escribir("forzado-malo", FORZAR_MALO); }
+  }
+  const i = RUEDA[k];
   // el puntero está arriba: llevar el centro del premio k a 0°
   const destino = 360 - (k * ANG + ANG / 2) + (Math.random() - .5) * ANG * .6;
   // se guarda el premio ANTES de girar: si recarga a mitad del giro, se entrega igual y sin duplicar
