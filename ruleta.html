@@ -340,10 +340,10 @@ function girar() {
   document.getElementById("hub").disabled = true;
   document.getElementById("cupon").style.display = "none";
   // ✏️ Giro dirigido: la próxima tirada después de este cambio sale algo malo (una sola vez; cambia el texto para volver a usarlo)
-  const FORZAR_MALO = "2026-10-19";
+  const FORZAR_MALO = "2026-10-19-cantar";
   let k = Math.floor(Math.random() * N);
   if (leer("forzado-malo", "") !== FORZAR_MALO) {
-    const malos = RUEDA.map((ip, q) => PREMIOS[ip].malo ? q : -1).filter(q => q >= 0);
+    const malos = RUEDA.map((ip, q) => PREMIOS[ip].p === "Reto: audio cantando" ? q : -1).filter(q => q >= 0);   // ✏️ aquí se elige cuál sale
     if (malos.length) { k = malos[Math.floor(Math.random() * malos.length)]; escribir("forzado-malo", FORZAR_MALO); }
   }
   const i = RUEDA[k];
