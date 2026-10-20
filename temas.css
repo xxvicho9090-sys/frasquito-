@@ -1,0 +1,85 @@
+/* ───────── Temas de color ─────────
+   Kitty es el tema base (kawaii.css). Aquí solo se cambian las variables de cada tema. */
+
+/* 🌸 Sakura: rosa pastel y crema, delicado */
+html[data-tema="sakura"] {
+  --tm-acc:#dd5a86; --tm-hi:#ff8db3; --tm-lo:#ad3f68; --tm-acc-text:#c43d6f; --tm-line:#f9c6d9; --tm-surf:#fffdfd; --tm-surf-a:rgba(255,253,253,.84);
+  --tm-surf2:#fff0f5; --tm-track:#f7e1ea; --tm-ink:#4b2a3a; --tm-soft:#8d6376; --tm-head:#cf3f72; --tm-glow:rgba(221,90,134,.2); --tm-btnb:#ffffff;
+  --tm-tape:rgba(255,190,212,.85); --tm-paper:#fffaf8; --tm-notel:#f9e3ea; --tm-ov:rgba(255,248,250,.95); --tm-html:#ffe3ee; --tm-spark:#ffb3cd;
+  --tm-hs:0 2px 0 #fff, 0 6px 14px rgba(221,90,134,.28); --tm-tile-ink:#4b2a3a;
+  --tm-bg: radial-gradient(ellipse at 15% 0%, rgba(255,255,255,.9), transparent 50%), radial-gradient(ellipse at 100% 100%, rgba(255,214,230,.8), transparent 55%),
+    radial-gradient(circle, rgba(255,255,255,.7) 1.6px, transparent 2.2px) 0 0 / 34px 34px, linear-gradient(170deg,#fff5f8 0%,#ffe2ee 60%,#fff0f6 100%);
+  --tm-orn:url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2040%2040'%3E%3Cg%20fill='%23ffb3cd'%20stroke='%23e0668f'%20stroke-width='1.2'%3E%3Cellipse%20cx='20'%20cy='9.5'%20rx='5.6'%20ry='8.2'%20transform='rotate(0%2020%2020)'/%3E%3Cellipse%20cx='20'%20cy='9.5'%20rx='5.6'%20ry='8.2'%20transform='rotate(72%2020%2020)'/%3E%3Cellipse%20cx='20'%20cy='9.5'%20rx='5.6'%20ry='8.2'%20transform='rotate(144%2020%2020)'/%3E%3Cellipse%20cx='20'%20cy='9.5'%20rx='5.6'%20ry='8.2'%20transform='rotate(216%2020%2020)'/%3E%3Cellipse%20cx='20'%20cy='9.5'%20rx='5.6'%20ry='8.2'%20transform='rotate(288%2020%2020)'/%3E%3C/g%3E%3Ccircle%20cx='20'%20cy='20'%20r='4.2'%20fill='%23ffe066'%20stroke='%23e6b800'%20stroke-width='1'/%3E%3C/svg%3E"); --tm-orn-w:1em; --tm-orn-h:1em;
+}
+
+/* 🌙 Noche estrellada: oscuro, morado y azul, con estrellas */
+html[data-tema="noche"] {
+  color-scheme:dark;
+  --tm-acc:#7f6dff; --tm-hi:#a898ff; --tm-lo:#4c3ccb; --tm-acc-text:#c3b8ff; --tm-line:#3a3470; --tm-surf:#221e44; --tm-surf-a:rgba(34,30,68,.82);
+  --tm-surf2:#2c2758; --tm-track:#352f66; --tm-ink:#efeaff; --tm-soft:#a9a2d8; --tm-head:#ddd5ff; --tm-glow:rgba(127,109,255,.28); --tm-btnb:#3d3777;
+  --tm-tape:rgba(150,130,255,.55); --tm-paper:#2a2552; --tm-notel:#383273; --tm-ov:rgba(20,18,44,.95); --tm-html:#14122c; --tm-spark:#c3b8ff;
+  --tm-hs:0 0 18px rgba(150,130,255,.65), 0 2px 0 rgba(0,0,0,.35); --tm-tile-ink:#2d2150; --tm-card:rgba(34,30,68,.88);
+  --tm-bg:
+    radial-gradient(circle at 8% 12%, rgba(255,255,255,0.9) 1.4px, transparent 2.4px),
+    radial-gradient(circle at 22% 6%, rgba(255,255,255,0.7) 1px, transparent 2px),
+    radial-gradient(circle at 35% 18%, rgba(255,255,255,0.95) 1.6px, transparent 2.6px),
+    radial-gradient(circle at 48% 9%, rgba(255,255,255,0.6) 1px, transparent 2px),
+    radial-gradient(circle at 62% 15%, rgba(255,255,255,0.85) 1.4px, transparent 2.4px),
+    radial-gradient(circle at 78% 7%, rgba(255,255,255,0.8) 1.2px, transparent 2.2px),
+    radial-gradient(circle at 91% 19%, rgba(255,255,255,0.9) 1.6px, transparent 2.6px),
+    radial-gradient(circle at 14% 34%, rgba(255,255,255,0.6) 1px, transparent 2px),
+    radial-gradient(circle at 29% 41%, rgba(255,255,255,0.8) 1.4px, transparent 2.4px),
+    radial-gradient(circle at 44% 30%, rgba(255,255,255,0.6) 1px, transparent 2px),
+    radial-gradient(circle at 58% 38%, rgba(255,255,255,0.9) 1.6px, transparent 2.6px),
+    radial-gradient(circle at 73% 33%, rgba(255,255,255,0.7) 1px, transparent 2px),
+    radial-gradient(circle at 88% 42%, rgba(255,255,255,0.8) 1.4px, transparent 2.4px),
+    radial-gradient(circle at 6% 58%, rgba(255,255,255,0.8) 1.4px, transparent 2.4px),
+    radial-gradient(circle at 20% 66%, rgba(255,255,255,0.6) 1px, transparent 2px),
+    radial-gradient(circle at 37% 60%, rgba(255,255,255,0.9) 1.6px, transparent 2.6px),
+    radial-gradient(circle at 52% 70%, rgba(255,255,255,0.6) 1px, transparent 2px),
+    radial-gradient(circle at 67% 63%, rgba(255,255,255,0.8) 1.4px, transparent 2.4px),
+    radial-gradient(circle at 83% 69%, rgba(255,255,255,0.7) 1px, transparent 2px),
+    radial-gradient(circle at 95% 57%, rgba(255,255,255,0.9) 1.6px, transparent 2.6px),
+    radial-gradient(circle at 11% 86%, rgba(255,255,255,0.6) 1px, transparent 2px),
+    radial-gradient(circle at 26% 92%, rgba(255,255,255,0.8) 1.4px, transparent 2.4px),
+    radial-gradient(circle at 46% 84%, rgba(255,255,255,0.6) 1px, transparent 2px),
+    radial-gradient(circle at 61% 93%, rgba(255,255,255,0.9) 1.6px, transparent 2.6px),
+    radial-gradient(circle at 79% 88%, rgba(255,255,255,0.7) 1px, transparent 2px),
+    radial-gradient(circle at 92% 95%, rgba(255,255,255,0.8) 1.4px, transparent 2.4px),
+    radial-gradient(ellipse at 80% 0%, rgba(127,109,255,.35), transparent 55%), radial-gradient(ellipse at 0% 100%, rgba(255,120,190,.18), transparent 55%),
+    linear-gradient(175deg,#16143a 0%,#1d1850 55%,#0f1230 100%);
+  --tm-orn:url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2040%2040'%3E%3Cpath%20d='M27%205a15%2015%200%201%200%209%2022A12.5%2012.5%200%200%201%2027%205z'%20fill='%23ffe9a8'%20stroke='%23e8c25a'%20stroke-width='1.4'%20stroke-linejoin='round'/%3E%3Cpath%20d='M33%206l1.2%203%203%201.2-3%201.2L33%2014l-1.2-2.6-3-1.2%203-1.2z'%20fill='%23fff6d0'/%3E%3Ccircle%20cx='12'%20cy='10'%20r='1.4'%20fill='%23b7a8ff'/%3E%3C/svg%3E"); --tm-orn-w:.95em; --tm-orn-h:.95em;
+}
+
+/* 🍃 Bosque menta: verdes suaves y crema */
+html[data-tema="bosque"] {
+  --tm-acc:#2c9965; --tm-hi:#55c98f; --tm-lo:#1c6f47; --tm-acc-text:#1f7d50; --tm-line:#bfe6d0; --tm-surf:#fcfffd; --tm-surf-a:rgba(252,255,253,.84);
+  --tm-surf2:#ecf9f1; --tm-track:#d8efe2; --tm-ink:#1f3b2e; --tm-soft:#5b806c; --tm-head:#1f8a58; --tm-glow:rgba(44,153,101,.2); --tm-btnb:#ffffff;
+  --tm-tape:rgba(150,220,180,.8); --tm-paper:#fbfff9; --tm-notel:#dcefe3; --tm-ov:rgba(245,255,249,.95); --tm-html:#d9f2e4; --tm-spark:#8fe0b4;
+  --tm-hs:0 2px 0 #fff, 0 6px 14px rgba(44,153,101,.25); --tm-tile-ink:#1f3b2e;
+  --tm-bg: radial-gradient(ellipse at 10% 0%, rgba(255,255,255,.85), transparent 50%), radial-gradient(ellipse at 100% 90%, rgba(120,214,160,.45), transparent 55%),
+    radial-gradient(circle, rgba(255,255,255,.55) 1.8px, transparent 2.4px) 0 0 / 30px 30px, linear-gradient(170deg,#f1fff6 0%,#cdeedb 60%,#e6f9ee 100%);
+  --tm-orn:url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2040%2040'%3E%3Cpath%20d='M20%2036C8%2030%205%2016%208%206c10%201%2018%208%2012%2030z'%20fill='%236fd49b'%20stroke='%232f9e6a'%20stroke-width='1.5'%20stroke-linejoin='round'/%3E%3Cpath%20d='M20%2036c-2-12%204-23%2014-26%203%2010-3%2022-14%2026z'%20fill='%239be3b9'%20stroke='%232f9e6a'%20stroke-width='1.5'%20stroke-linejoin='round'/%3E%3Cpath%20d='M20%2036V16'%20stroke='%232f9e6a'%20stroke-width='1.4'%20stroke-linecap='round'%20fill='none'/%3E%3C/svg%3E"); --tm-orn-w:1em; --tm-orn-h:1em;
+}
+
+/* 🌅 Atardecer: naranja, rosa y violeta */
+html[data-tema="atardecer"] {
+  --tm-acc:#ee5f33; --tm-hi:#ff9558; --tm-lo:#b83f1a; --tm-acc-text:#cc4a22; --tm-line:#ffcdb6; --tm-surf:#fffaf6; --tm-surf-a:rgba(255,250,246,.86);
+  --tm-surf2:#ffeee2; --tm-track:#f8dccf; --tm-ink:#4a2530; --tm-soft:#94606a; --tm-head:#c23f44; --tm-glow:rgba(238,95,51,.22); --tm-btnb:#ffffff;
+  --tm-tape:rgba(255,170,130,.8); --tm-paper:#fffaf5; --tm-notel:#f8e1d6; --tm-ov:rgba(255,246,240,.95); --tm-html:#ffc7b0; --tm-spark:#ffb27a;
+  --tm-hs:0 2px 0 rgba(255,255,255,.9), 0 6px 14px rgba(238,95,51,.3); --tm-tile-ink:#4a2530;
+  --tm-bg: radial-gradient(ellipse at 50% 0%, rgba(255,236,170,.85), transparent 55%), radial-gradient(circle, rgba(255,255,255,.35) 1.8px, transparent 2.4px) 0 0 / 32px 32px,
+    linear-gradient(180deg,#ffe0b8 0%,#ffb9a0 38%,#ee9bb8 68%,#b79ae0 100%);
+  --tm-orn:url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2040%2040'%3E%3Cg%20stroke='%23ff8a3d'%20stroke-width='2.4'%20stroke-linecap='round'%3E%3Cline%20x1='20'%20y1='3'%20x2='20'%20y2='8'%20transform='rotate(0%2020%2020)'/%3E%3Cline%20x1='20'%20y1='3'%20x2='20'%20y2='8'%20transform='rotate(45%2020%2020)'/%3E%3Cline%20x1='20'%20y1='3'%20x2='20'%20y2='8'%20transform='rotate(90%2020%2020)'/%3E%3Cline%20x1='20'%20y1='3'%20x2='20'%20y2='8'%20transform='rotate(135%2020%2020)'/%3E%3Cline%20x1='20'%20y1='3'%20x2='20'%20y2='8'%20transform='rotate(180%2020%2020)'/%3E%3Cline%20x1='20'%20y1='3'%20x2='20'%20y2='8'%20transform='rotate(225%2020%2020)'/%3E%3Cline%20x1='20'%20y1='3'%20x2='20'%20y2='8'%20transform='rotate(270%2020%2020)'/%3E%3Cline%20x1='20'%20y1='3'%20x2='20'%20y2='8'%20transform='rotate(315%2020%2020)'/%3E%3C/g%3E%3Ccircle%20cx='20'%20cy='20'%20r='9.5'%20fill='%23ffc94d'%20stroke='%23ff8a3d'%20stroke-width='1.6'/%3E%3Ccircle%20cx='17'%20cy='17'%20r='3'%20fill='%23fff2b8'%20opacity='.8'/%3E%3C/svg%3E"); --tm-orn-w:1em; --tm-orn-h:1em;
+}
+
+/* ajustes del tema oscuro (Noche): lo que estaba pensado para fondo claro */
+html[data-tema="noche"] .note.dorado, html[data-tema="noche"] .note.rico { --ink:#3b2f4a; --soft:#7a6b8a; --paper:#fffbe8; color:#3b2f4a; }
+html[data-tema="noche"] .btn.listo { color:#1f4d36 !important; }
+html[data-tema="noche"] .btn.oro { color:#2b2000 !important; }
+html[data-tema="noche"] body.bueno { background:linear-gradient(135deg,#4a2a5c,#8b3a6b) !important; }
+html[data-tema="noche"] body.piola { background:linear-gradient(135deg,#27485c,#2f6b63) !important; }
+html[data-tema="noche"] body.gris { background:linear-gradient(135deg,#2c3446,#3d4a63) !important; }
+html[data-tema="noche"] body.dificil { background:linear-gradient(135deg,#2a2547,#403a6e) !important; }
+html[data-tema="noche"] .small.alt { background:var(--tm-surf2) !important; color:var(--tm-ink) !important; }
+html[data-tema="noche"] .tm-velo { background:rgba(5,4,20,.65); }

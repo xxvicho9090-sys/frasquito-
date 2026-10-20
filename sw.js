@@ -1,8 +1,8 @@
 /* Service worker: deja el sitio funcionando sin internet y siempre trae lo último */
-const CACHE = "frasco-v5";
+const CACHE = "frasco-v6";
 const ARCHIVOS = [
   "./", "./index.html", "./juegos.html", "./juegos.js", "./three.min.js", "./ruleta.html", "./comida.html", "./aburrida.html", "./termometro.html", "./apple-touch-icon.png",
-  "./pwa.js", "./kawaii.css", "./fuentes.css", "./fuentes/nunito-latin.woff2", "./fuentes/nunito-latin-ext.woff2", "./fuentes/caveat-latin.woff2", "./fuentes/caveat-latin-ext.woff2", "./fuentes/fredoka-latin.woff2", "./fuentes/fredoka-latin-ext.woff2", "./kawaii.js", "./manifest.webmanifest", "./icono-192.png", "./icono-512.png", "./icono-maskable.png",
+  "./pwa.js", "./kawaii.css", "./temas.css", "./temas.js", "./fuentes.css", "./fuentes/nunito-latin.woff2", "./fuentes/nunito-latin-ext.woff2", "./fuentes/caveat-latin.woff2", "./fuentes/caveat-latin-ext.woff2", "./fuentes/fredoka-latin.woff2", "./fuentes/fredoka-latin-ext.woff2", "./kawaii.js", "./manifest.webmanifest", "./icono-192.png", "./icono-512.png", "./icono-maskable.png",
 ];
 
 self.addEventListener("install", e => {

@@ -274,7 +274,7 @@ function jugar(id) {
   E.cv.classList.toggle("oculto", def.tipo !== "canvas");
   E.dom.classList.toggle("oculto", def.tipo !== "dom");
   E.dom.innerHTML = ""; E.parts = []; E.shake = 0;
-  E.zona.style.background = def.fondo || "var(--card)";
+  E.zona.style.background = def.fondo || "#fffdfd";
   medir();
   if (def.menu) return E.juego.menu();
   ovMostrar(def.emoji + " " + def.nombre, def.ayuda, [
